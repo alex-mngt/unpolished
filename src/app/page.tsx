@@ -1,7 +1,8 @@
-import { BackgroundVideo } from "./components/BackgroundVideo";
-import { Button } from "./components/UI/Button";
+import { FC } from "react";
+import { BackgroundVideo } from "@/components/BackgroundVideo";
+import { Button } from "@/components/UI/Button";
 
-export default function Home() {
+const Home: FC = () => {
   return (
     <main className="flex-1 flex flex-col lg:flex-row items-center container mx-auto gap-6 px-4">
       <BackgroundVideo
@@ -30,4 +31,6 @@ export default function Home() {
       </div>
     </main>
   );
-}
+};
+
+export default Home;
