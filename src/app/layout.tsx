@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Figtree } from "next/font/google";
+import localFont from "next/font/local";
+
 import "./globals.css";
 
 const geistSans = Geist({
@@ -17,13 +19,20 @@ export const metadata: Metadata = {
   description: "",
 };
 
+const drowner = localFont({
+  src: "./fonts/drowner.woff2",
+  variable: "--font-drowner-local",
+});
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${drowner.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col cursor-crosshair">
+        {children}
+      </body>
     </html>
   );
 }
