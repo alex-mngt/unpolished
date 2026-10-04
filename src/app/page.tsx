@@ -3,14 +3,14 @@ import { Button } from "./components/UI/Button";
 
 export default function Home() {
   return (
-    <main className="flex-1 flex items-center container mx-auto gap-6">
+    <main className="flex-1 flex flex-col lg:flex-row items-center container mx-auto gap-6 px-4">
       <BackgroundVideo
-        className="w-1/2 aspect-square"
+        className="md:w-2/3 lg:w-1/2 aspect-square"
         src="https://stream.mux.com/Oth4kOng9AWTCfongg3AoF5BL4kGMCsAMrw3kwqhKtI.m3u8"
         crossOrigin="anonymous"
       />
-      <div className="flex-1 flex flex-col">
-        <h1 className="text-6xl tracking-widest uppercase font-drowner mb-4">
+      <div className="flex-1 flex flex-col md:max-w-xl lg:max-w-none">
+        <h1 className="text-5xl lg:text-6xl tracking-widest uppercase font-drowner mb-4">
           unpolished
         </h1>
         <p className="mb-4">
@@ -26,7 +26,7 @@ export default function Home() {
           <li>3 hats</li>
           <li>5 FX</li>
         </ul>
-        <Button className="w-min">download</Button>
+        <Button className="lg:w-min">download</Button>
       </div>
     </main>
   );
