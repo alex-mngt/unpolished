@@ -1,11 +1,11 @@
-import { MuxBackgroundVideo } from "@videojs/react/media/mux-background-video";
+import { BackgroundVideo } from "./components/BackgroundVideo";
 import { Button } from "./components/UI/Button";
 
 export default function Home() {
   return (
     <main className="flex-1 flex items-center container mx-auto gap-6">
-      <MuxBackgroundVideo
-        className="w-1/2"
+      <BackgroundVideo
+        className="w-1/2 aspect-square"
         src="https://stream.mux.com/Oth4kOng9AWTCfongg3AoF5BL4kGMCsAMrw3kwqhKtI.m3u8"
         crossOrigin="anonymous"
       />
