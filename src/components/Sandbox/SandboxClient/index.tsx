@@ -12,6 +12,8 @@ import {
   TestPreset,
 } from "@/lib/audio/engine";
 
+import { isPlayShortcut } from "./shortcut";
+
 type Source = "file" | "test";
 
 const PRESETS: { value: TestPreset; label: string }[] = [
@@ -47,6 +49,20 @@ export const SandboxClient: FC = () => {
     if (!fileUrl) return;
     return () => URL.revokeObjectURL(fileUrl);
   }, [fileUrl]);
+
+  useEffect(() => {
+    if (!fileUrl || source !== "file") return;
+    // Every press restarts the song from the top; there is no pause.
+    const onKeyDown = (event: KeyboardEvent) => {
+      const audio = audioRef.current;
+      if (!audio || !isPlayShortcut(event)) return;
+      audio.currentTime = 0;
+      // A rejected play() also fires "error", which onStopped handles.
+      audio.play().catch(() => {});
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [fileUrl, source]);
 
   const stopTone = () => {
     engine.stopTest();
@@ -125,11 +141,16 @@ export const SandboxClient: FC = () => {
 
         {/* Kept mounted in both modes: an element can only be attached once. */}
         <div className={source === "file" ? "flex flex-col gap-3" : "hidden"}>
-          <input type="file" accept="audio/*" onChange={selectFile} />
+          {fileUrl ? (
+            <p>
+              Press <kbd>A</kbd> to play
+            </p>
+          ) : (
+            <input type="file" accept="audio/*" onChange={selectFile} />
+          )}
           <audio
             ref={audioRef}
             src={fileUrl ?? undefined}
-            controls
             onPlay={onPlay}
             onPause={onStopped}
             onEnded={onStopped}
