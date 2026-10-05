@@ -210,7 +210,7 @@ export const SandboxClient: FC = () => {
             onChange={changeVolume}
           />
         </label>
-        <div className="flex items-center gap-6">
+        <div className="flex items-center justify-evenly gap-6">
           <Goniometer className="w-1/2 max-w-md" />
           <div className="flex flex-col gap-3 w-1/2 max-w-md">
             <VUMeter channel="left" referenceDbfs={-8} />
