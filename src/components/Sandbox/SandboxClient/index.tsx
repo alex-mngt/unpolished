@@ -4,8 +4,13 @@ import { ChangeEvent, FC, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/UI/Button";
 import { Goniometer } from "@/components/Visualizers/Goniometer";
+import { VUMeter } from "@/components/Visualizers/VUMeter";
 import { AudioEngineContext } from "@/lib/audio/context";
-import { AudioEngine, TestPreset } from "@/lib/audio/engine";
+import {
+  AudioEngine,
+  DEFAULT_TEST_LEVEL_DBFS,
+  TestPreset,
+} from "@/lib/audio/engine";
 
 type Source = "file" | "test";
 
@@ -15,12 +20,21 @@ const PRESETS: { value: TestPreset; label: string }[] = [
   { value: "right", label: "Right only" },
 ];
 
+const LEVELS: { value: number; label: string }[] = [
+  {
+    value: DEFAULT_TEST_LEVEL_DBFS,
+    label: `−${-DEFAULT_TEST_LEVEL_DBFS} dBFS`,
+  },
+  { value: -18, label: "−18 dBFS (0 VU)" },
+];
+
 export const SandboxClient: FC = () => {
   const [engine] = useState(() => new AudioEngine());
   const audioRef = useRef<HTMLAudioElement>(null);
   const [source, setSource] = useState<Source>("file");
   const [fileUrl, setFileUrl] = useState<string | null>(null);
   const [preset, setPreset] = useState<TestPreset>("mono");
+  const [level, setLevel] = useState(DEFAULT_TEST_LEVEL_DBFS);
   const [toneOn, setToneOn] = useState(false);
   const [volume, setVolume] = useState(1);
 
@@ -70,6 +84,12 @@ export const SandboxClient: FC = () => {
     const next = event.target.value as TestPreset;
     setPreset(next);
     engine.setTestPreset(next);
+  };
+
+  const selectLevel = (event: ChangeEvent<HTMLSelectElement>) => {
+    const next = Number(event.target.value);
+    setLevel(next);
+    engine.setTestLevel(next);
   };
 
   const changeVolume = (event: ChangeEvent<HTMLInputElement>) => {
@@ -133,6 +153,18 @@ export const SandboxClient: FC = () => {
                 </option>
               ))}
             </select>
+            <select
+              aria-label="Test level"
+              value={level}
+              onChange={selectLevel}
+              className="border border-foreground rounded-xs py-2 px-3 bg-background"
+            >
+              {LEVELS.map(({ value, label }) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
           </div>
         )}
 
@@ -149,6 +181,10 @@ export const SandboxClient: FC = () => {
         </label>
 
         <Goniometer className="w-full max-w-md" />
+        <div className="flex flex-col gap-3 w-full max-w-md">
+          <VUMeter channel="left" referenceDbfs={-8} />
+          <VUMeter channel="right" referenceDbfs={-8} />
+        </div>
       </main>
     </AudioEngineContext>
   );

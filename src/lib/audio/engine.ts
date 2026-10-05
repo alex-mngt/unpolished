@@ -40,19 +40,22 @@ interface TestSignal {
 }
 
 const FFT_SIZE = 2048;
-// Keep ticking this long after the last source stops so traces can fade out.
-const TAIL_MS = 500;
+// Keep ticking this long after the last source stops so traces can fade out
+// and needles can fall back to rest.
+const TAIL_MS = 1500;
 // Frame gaps longer than this (tab was hidden) are treated as this long.
 const MAX_DT_MS = 100;
 const TEST_FREQUENCY = 220;
-const TEST_AMPLITUDE = 0.8;
-// The test tone is tapped at full amplitude but only heard at about -20 dB.
-const TEST_TRIM = 0.1;
+/** Peak level of the test tone until `setTestLevel` is called. */
+export const DEFAULT_TEST_LEVEL_DBFS = -1.9;
+// The test tone is tapped at its nominal level but always heard at this peak
+// amplitude (about -22 dBFS), whatever that level is.
+const TEST_HEARD_AMPLITUDE = 0.08;
 
-const PRESET_GAINS: Record<TestPreset, [number, number]> = {
-  mono: [TEST_AMPLITUDE, TEST_AMPLITUDE],
-  left: [TEST_AMPLITUDE, 0],
-  right: [0, TEST_AMPLITUDE],
+const PRESET_ROUTING: Record<TestPreset, [number, number]> = {
+  mono: [1, 1],
+  left: [1, 0],
+  right: [0, 1],
 };
 
 /**
@@ -70,6 +73,8 @@ export class AudioEngine {
   private left = new Float32Array(FFT_SIZE);
   private right = new Float32Array(FFT_SIZE);
   private mediaPlaying = false;
+  private testPreset: TestPreset = "mono";
+  private testAmplitude = 10 ** (DEFAULT_TEST_LEVEL_DBFS / 20);
   private volumeLevel = 1;
   private raf = 0;
   private lastFrame = 0;
@@ -134,10 +139,15 @@ export class AudioEngine {
   }
 
   setTestPreset(preset: TestPreset) {
-    if (!this.test) return;
-    const [l, r] = PRESET_GAINS[preset];
-    this.test.gainL.gain.value = l;
-    this.test.gainR.gain.value = r;
+    this.testPreset = preset;
+    this.applyTestGains();
+  }
+
+  /** Peak level of the tone as the visualizers see it; can be set at any time. */
+  setTestLevel(dbfs: number) {
+    this.testAmplitude = 10 ** (dbfs / 20);
+    this.applyTestGains();
+    this.applyVolume();
   }
 
   stopTest() {
@@ -190,10 +200,17 @@ export class AudioEngine {
     return this.mediaPlaying || this.test !== null;
   }
 
+  private applyTestGains() {
+    if (!this.test) return;
+    const [l, r] = PRESET_ROUTING[this.testPreset];
+    this.test.gainL.gain.value = l * this.testAmplitude;
+    this.test.gainR.gain.value = r * this.testAmplitude;
+  }
+
   private applyVolume() {
     if (!this.graph) return;
-    this.graph.volume.gain.value =
-      this.volumeLevel * (this.test ? TEST_TRIM : 1);
+    const trim = this.test ? TEST_HEARD_AMPLITUDE / this.testAmplitude : 1;
+    this.graph.volume.gain.value = this.volumeLevel * trim;
   }
 
   private sourcesChanged() {
