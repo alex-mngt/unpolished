@@ -38,7 +38,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${drowner.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${drowner.variable} dark h-full antialiased`}
     >
       <body className="min-h-full flex flex-col cursor-crosshair">
         {children}
