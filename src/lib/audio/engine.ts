@@ -86,15 +86,16 @@ const CHOKE_FADE_S = 0.005;
 // Time constant gain changes glide with, so dragging a slider does not zip.
 const GAIN_GLIDE_S = 0.01;
 
-// Trim applied to the sum, so that two full-scale voices add up to full scale.
-const HEADROOM = 0.5;
-// The fastest, hardest settings a DynamicsCompressorNode offers. It is not a
-// brick wall: a transient can still get past it during the attack.
-const LIMITER_THRESHOLD_DB = -3;
-const LIMITER_KNEE_DB = 0;
-const LIMITER_RATIO = 20;
-const LIMITER_ATTACK_S = 0.001;
-const LIMITER_RELEASE_S = 0.1;
+// Trim applied to the sum (-3 dB); the limiter takes care of the rest.
+const HEADROOM = Math.SQRT1_2;
+// A soft knee that ends at full scale, so the limiter eases in instead of
+// clamping. It is not a brick wall: a transient can still get past it during
+// the attack.
+const LIMITER_THRESHOLD_DB = -6;
+const LIMITER_KNEE_DB = 6;
+const LIMITER_RATIO = 8;
+const LIMITER_ATTACK_S = 0.003;
+const LIMITER_RELEASE_S = 0.25;
 
 const glide = (gain: GainNode, level: number) =>
   gain.gain.setTargetAtTime(level, gain.context.currentTime, GAIN_GLIDE_S);
