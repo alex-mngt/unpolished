@@ -210,11 +210,12 @@ export const SandboxClient: FC = () => {
             onChange={changeVolume}
           />
         </label>
-
-        <Goniometer className="w-full max-w-md" />
-        <div className="flex flex-col gap-3 w-full max-w-md">
-          <VUMeter channel="left" referenceDbfs={-8} />
-          <VUMeter channel="right" referenceDbfs={-8} />
+        <div className="flex items-center gap-6">
+          <Goniometer className="w-1/2 max-w-md" />
+          <div className="flex flex-col gap-3 w-1/2 max-w-md">
+            <VUMeter channel="left" referenceDbfs={-8} />
+            <VUMeter channel="right" referenceDbfs={-8} />
+          </div>
         </div>
       </main>
     </AudioEngineContext>

@@ -86,6 +86,16 @@ const CHOKE_FADE_S = 0.005;
 // Time constant gain changes glide with, so dragging a slider does not zip.
 const GAIN_GLIDE_S = 0.01;
 
+// Trim applied to the sum, so that two full-scale voices add up to full scale.
+const HEADROOM = 0.5;
+// The fastest, hardest settings a DynamicsCompressorNode offers. It is not a
+// brick wall: a transient can still get past it during the attack.
+const LIMITER_THRESHOLD_DB = -3;
+const LIMITER_KNEE_DB = 0;
+const LIMITER_RATIO = 20;
+const LIMITER_ATTACK_S = 0.001;
+const LIMITER_RELEASE_S = 0.1;
+
 const glide = (gain: GainNode, level: number) =>
   gain.gain.setTargetAtTime(level, gain.context.currentTime, GAIN_GLIDE_S);
 
@@ -93,13 +103,13 @@ const glide = (gain: GainNode, level: number) =>
  * One AudioContext, one stereo tap and one animation loop shared by every
  * visualizer. Lives outside React: nothing here triggers a render.
  *
- *   voice -> voice gain -+-> input gain -+-> mix (forced stereo) -> splitter -> analyserL / analyserR
- *   voice -> voice gain -+               |                       -> volume   -> speakers
+ *   voice -> voice gain -+-> input gain -+-> mix (forced stereo, headroom) -> limiter -> splitter -> analyserL / analyserR
+ *   voice -> voice gain -+               |                                           -> volume   -> speakers
  *                          input gain ---+
  *
- * The tap sits after the sum and before the volume, so the visualizers see
- * every input at once, at the level the inputs were mixed at. Nothing limits
- * the sum: it can exceed full scale.
+ * The tap sits after the limiter and before the volume, so the visualizers
+ * see every input at once, at the level that reaches the volume control. The
+ * limiter keeps the sum near full scale, short transients aside.
  */
 export class AudioEngine {
   private graph: Graph | null = null;
@@ -123,18 +133,27 @@ export class AudioEngine {
     mix.channelCount = 2;
     mix.channelCountMode = "explicit";
     mix.channelInterpretation = "speakers";
+    mix.gain.value = HEADROOM;
+
+    const limiter = ctx.createDynamicsCompressor();
+    limiter.threshold.value = LIMITER_THRESHOLD_DB;
+    limiter.knee.value = LIMITER_KNEE_DB;
+    limiter.ratio.value = LIMITER_RATIO;
+    limiter.attack.value = LIMITER_ATTACK_S;
+    limiter.release.value = LIMITER_RELEASE_S;
+    mix.connect(limiter);
 
     const splitter = ctx.createChannelSplitter(2);
     const analyserL = ctx.createAnalyser();
     const analyserR = ctx.createAnalyser();
     analyserL.fftSize = analyserR.fftSize = FFT_SIZE;
-    mix.connect(splitter);
+    limiter.connect(splitter);
     splitter.connect(analyserL, 0);
     splitter.connect(analyserR, 1);
 
     const volume = ctx.createGain();
     volume.gain.value = this.volumeLevel;
-    mix.connect(volume);
+    limiter.connect(volume);
     volume.connect(ctx.destination);
 
     this.graph = { ctx, mix, volume, analyserL, analyserR };

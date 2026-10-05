@@ -1,6 +1,7 @@
 import { FC } from "react";
 import { BackgroundVideo } from "@/components/BackgroundVideo";
 import { Button } from "@/components/UI/Button";
+import Link from "next/link";
 
 const Home: FC = () => {
   return (
@@ -17,9 +18,10 @@ const Home: FC = () => {
         <p className="mb-4">
           Sed at leo id orci fringilla aliquet. Nullam sit amet condimentum
           odio, consequat sodales elit. Aliquam ut augue porta, euismod mauris
-          scelerisque, consectetur ex. Maecenas ut sodales purus. Curabitur non
-          auctor elit. In hac habitasse platea dictumst. Nulla hendrerit lectus
-          sed fringilla consectetur. Proin maximus blandit finibus.
+          scelerisque, consectetur ex. Maecenas ut sodales purus.{" "}
+          <Link href="/sandbox">Curabitur</Link> non auctor elit. In hac
+          habitasse platea dictumst. Nulla hendrerit lectus sed fringilla
+          consectetur. Proin maximus blandit finibus.
         </p>
         <h2 className="text-xl font-semibold mb-2">sample pack content</h2>
         <ul className="ml-1 mb-5">
