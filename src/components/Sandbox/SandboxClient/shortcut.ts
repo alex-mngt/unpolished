@@ -29,12 +29,25 @@ const takesTyping = (target: EventTarget | null) => {
   );
 };
 
-/** Whether a keydown is a deliberate, single press of the play key. */
-export const isPlayShortcut = (event: ShortcutEvent) =>
-  // Autofill can dispatch synthetic keydowns that carry no key.
-  event.key?.toLowerCase() === "a" &&
-  !event.repeat &&
-  !event.metaKey &&
-  !event.ctrlKey &&
-  !event.altKey &&
-  !takesTyping(event.target);
+export type ShortcutAction = { type: "trigger"; pad: number } | { type: "stop" };
+
+/** One key per pad, in pad order. */
+export const PAD_KEYS: readonly string[] = ["a", "s"];
+
+/** What a keydown asks for, if it is a deliberate, single press of a shortcut. */
+export const shortcutAction = (event: ShortcutEvent): ShortcutAction | null => {
+  if (
+    // Autofill can dispatch synthetic keydowns that carry no key.
+    !event.key ||
+    event.repeat ||
+    event.metaKey ||
+    event.ctrlKey ||
+    event.altKey ||
+    takesTyping(event.target)
+  ) {
+    return null;
+  }
+  if (event.key === "Escape") return { type: "stop" };
+  const pad = PAD_KEYS.indexOf(event.key.toLowerCase());
+  return pad === -1 ? null : { type: "trigger", pad };
+};

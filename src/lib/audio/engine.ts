@@ -1,4 +1,25 @@
-export type TestPreset = "mono" | "left" | "right";
+/** What a trigger does to the voices its input is already sounding. */
+export type InputMode = "mono" | "poly";
+
+/**
+ * One sampler pad: a decoded sample that can be triggered at any time and
+ * plays alongside every other input.
+ */
+export interface AudioInput {
+  /**
+   * Decodes an audio file and makes it the sample of this input. Rejects, and
+   * keeps the previous sample, when the data cannot be decoded. Voices that are
+   * already sounding play the old sample out.
+   */
+  load: (data: ArrayBuffer) => Promise<void>;
+  /** Plays the sample from the top. Does nothing until a sample is loaded. */
+  trigger: () => void;
+  setGain: (level: number) => void;
+  /** Takes effect on the next trigger: sounding voices are left alone. */
+  setMode: (mode: InputMode) => void;
+  /** Fades the input out and removes it from the engine. */
+  dispose: () => void;
+}
 
 /**
  * Called once per animation frame while audio is playing.
@@ -26,142 +47,145 @@ interface Subscriber {
 
 interface Graph {
   ctx: AudioContext;
-  input: GainNode;
+  mix: GainNode;
   volume: GainNode;
   analyserL: AnalyserNode;
   analyserR: AnalyserNode;
 }
 
-interface TestSignal {
-  osc: OscillatorNode;
-  gainL: GainNode;
-  gainR: GainNode;
-  merger: ChannelMergerNode;
+interface Voice {
+  source: AudioBufferSourceNode;
+  gain: GainNode;
+}
+
+interface InputState {
+  /** Created with the first voice, so that no input needs a user gesture. */
+  node: GainNode | null;
+  buffer: AudioBuffer | null;
+  level: number;
+  mode: InputMode;
+  /** Oldest first. A voice leaves this list as soon as it starts fading out. */
+  voices: Voice[];
+  /** Voices still connected, including the ones fading out. */
+  live: number;
+  /** Bumped by every `load`, so that the latest request wins. */
+  loads: number;
+  disposed: boolean;
 }
 
 const FFT_SIZE = 2048;
-// Keep ticking this long after the last source stops so traces can fade out
+// Keep ticking this long after the last voice ends so traces can fade out
 // and needles can fall back to rest.
 const TAIL_MS = 1500;
 // Frame gaps longer than this (tab was hidden) are treated as this long.
 const MAX_DT_MS = 100;
-const TEST_FREQUENCY = 220;
-/** Peak level of the test tone until `setTestLevel` is called. */
-export const DEFAULT_TEST_LEVEL_DBFS = -1.9;
-// The test tone is tapped at its nominal level but always heard at this peak
-// amplitude (about -22 dBFS), whatever that level is.
-const TEST_HEARD_AMPLITUDE = 0.08;
+/** Voices one input can sound at once in poly mode; the oldest is stolen. */
+export const MAX_VOICES = 8;
+// Long enough that a voice cut mid-waveform does not click.
+const CHOKE_FADE_S = 0.005;
+// Time constant gain changes glide with, so dragging a slider does not zip.
+const GAIN_GLIDE_S = 0.01;
 
-const PRESET_ROUTING: Record<TestPreset, [number, number]> = {
-  mono: [1, 1],
-  left: [1, 0],
-  right: [0, 1],
-};
+const glide = (gain: GainNode, level: number) =>
+  gain.gain.setTargetAtTime(level, gain.context.currentTime, GAIN_GLIDE_S);
 
 /**
  * One AudioContext, one stereo tap and one animation loop shared by every
  * visualizer. Lives outside React: nothing here triggers a render.
  *
- *   source -> input (forced stereo) -> splitter -> analyserL / analyserR
- *                                   -> volume   -> speakers
+ *   voice -> voice gain -+-> input gain -+-> mix (forced stereo) -> splitter -> analyserL / analyserR
+ *   voice -> voice gain -+               |                       -> volume   -> speakers
+ *                          input gain ---+
+ *
+ * The tap sits after the sum and before the volume, so the visualizers see
+ * every input at once, at the level the inputs were mixed at. Nothing limits
+ * the sum: it can exceed full scale.
  */
 export class AudioEngine {
   private graph: Graph | null = null;
-  private test: TestSignal | null = null;
-  private attached = new WeakSet<HTMLMediaElement>();
+  private inputs = new Set<InputState>();
   private subscribers = new Set<Subscriber>();
   private left = new Float32Array(FFT_SIZE);
   private right = new Float32Array(FFT_SIZE);
-  private mediaPlaying = false;
-  private testPreset: TestPreset = "mono";
-  private testAmplitude = 10 ** (DEFAULT_TEST_LEVEL_DBFS / 20);
+  private liveVoices = 0;
   private volumeLevel = 1;
   private raf = 0;
   private lastFrame = 0;
   private tailUntil = 0;
 
-  /** Must first be reached from a user gesture (browser autoplay policy). */
+  /** A context made outside a user gesture stays suspended until a trigger. */
   private ensureGraph(): Graph {
     if (this.graph) return this.graph;
 
     const ctx = new AudioContext();
-    const input = ctx.createGain();
-    // Upmix mono sources so the right channel is not read as silence.
-    input.channelCount = 2;
-    input.channelCountMode = "explicit";
-    input.channelInterpretation = "speakers";
+    const mix = ctx.createGain();
+    // Upmix mono samples so the right channel is not read as silence.
+    mix.channelCount = 2;
+    mix.channelCountMode = "explicit";
+    mix.channelInterpretation = "speakers";
 
     const splitter = ctx.createChannelSplitter(2);
     const analyserL = ctx.createAnalyser();
     const analyserR = ctx.createAnalyser();
     analyserL.fftSize = analyserR.fftSize = FFT_SIZE;
-    input.connect(splitter);
+    mix.connect(splitter);
     splitter.connect(analyserL, 0);
     splitter.connect(analyserR, 1);
 
     const volume = ctx.createGain();
-    input.connect(volume);
+    volume.gain.value = this.volumeLevel;
+    mix.connect(volume);
     volume.connect(ctx.destination);
 
-    this.graph = { ctx, input, volume, analyserL, analyserR };
-    this.applyVolume();
+    this.graph = { ctx, mix, volume, analyserL, analyserR };
     return this.graph;
   }
 
-  attachMedia(element: HTMLMediaElement) {
-    if (this.attached.has(element)) return;
-    const { ctx, input } = this.ensureGraph();
-    ctx.createMediaElementSource(element).connect(input);
-    this.attached.add(element);
+  createInput(): AudioInput {
+    const input: InputState = {
+      node: null,
+      buffer: null,
+      level: 1,
+      mode: "mono",
+      voices: [],
+      live: 0,
+      loads: 0,
+      disposed: false,
+    };
+    this.inputs.add(input);
+
+    return {
+      load: async (data) => {
+        const request = ++input.loads;
+        const buffer = await this.ensureGraph().ctx.decodeAudioData(data);
+        if (request === input.loads && !input.disposed) input.buffer = buffer;
+      },
+      trigger: () => this.trigger(input),
+      setGain: (level) => {
+        input.level = level;
+        if (input.node) glide(input.node, level);
+      },
+      setMode: (mode) => {
+        input.mode = mode;
+      },
+      dispose: () => {
+        input.disposed = true;
+        input.buffer = null;
+        this.inputs.delete(input);
+        this.chokeAll(input);
+        if (input.live === 0) input.node?.disconnect();
+      },
+    };
   }
 
-  setMediaPlaying(playing: boolean) {
-    this.mediaPlaying = playing;
-    this.sourcesChanged();
-  }
-
-  startTest(preset: TestPreset) {
-    if (this.test) return;
-    const { ctx, input } = this.ensureGraph();
-    const osc = ctx.createOscillator();
-    osc.frequency.value = TEST_FREQUENCY;
-    const gainL = ctx.createGain();
-    const gainR = ctx.createGain();
-    const merger = ctx.createChannelMerger(2);
-    osc.connect(gainL).connect(merger, 0, 0);
-    osc.connect(gainR).connect(merger, 0, 1);
-    merger.connect(input);
-    osc.start();
-    this.test = { osc, gainL, gainR, merger };
-    this.setTestPreset(preset);
-    this.applyVolume();
-    this.sourcesChanged();
-  }
-
-  setTestPreset(preset: TestPreset) {
-    this.testPreset = preset;
-    this.applyTestGains();
-  }
-
-  /** Peak level of the tone as the visualizers see it; can be set at any time. */
-  setTestLevel(dbfs: number) {
-    this.testAmplitude = 10 ** (dbfs / 20);
-    this.applyTestGains();
-    this.applyVolume();
-  }
-
-  stopTest() {
-    if (!this.test) return;
-    this.test.osc.stop();
-    this.test.merger.disconnect();
-    this.test = null;
-    this.applyVolume();
-    this.sourcesChanged();
+  /** Fades out every voice of every input. */
+  stopAll() {
+    for (const input of this.inputs) this.chokeAll(input);
   }
 
   setVolume(level: number) {
     this.volumeLevel = level;
-    this.applyVolume();
+    if (this.graph) glide(this.graph.volume, level);
   }
 
   subscribe(onFrame: FrameCallback, onIdle?: () => void): Subscription {
@@ -180,9 +204,8 @@ export class AudioEngine {
 
   /**
    * Silences the engine and stops the loop without tearing the graph down.
-   * The context is suspended rather than closed because a media element can
-   * never be attached to a second context, and effect cleanups also run when
-   * the element survives (Fast Refresh, StrictMode).
+   * The context is suspended rather than closed because effect cleanups also
+   * run when the engine survives (Fast Refresh, StrictMode).
    */
   suspend() {
     cancelAnimationFrame(this.raf);
@@ -197,20 +220,57 @@ export class AudioEngine {
   }
 
   private get playing() {
-    return this.mediaPlaying || this.test !== null;
+    return this.liveVoices > 0;
   }
 
-  private applyTestGains() {
-    if (!this.test) return;
-    const [l, r] = PRESET_ROUTING[this.testPreset];
-    this.test.gainL.gain.value = l * this.testAmplitude;
-    this.test.gainR.gain.value = r * this.testAmplitude;
+  /** Must be reached from a user gesture (browser autoplay policy). */
+  private trigger(input: InputState) {
+    if (!input.buffer || input.disposed) return;
+    const { ctx, mix } = this.ensureGraph();
+    if (!input.node) {
+      input.node = ctx.createGain();
+      input.node.gain.value = input.level;
+      input.node.connect(mix);
+    }
+
+    if (input.mode === "mono") this.chokeAll(input);
+    else if (input.voices.length >= MAX_VOICES) {
+      this.choke(input, input.voices[0]);
+    }
+
+    const source = ctx.createBufferSource();
+    source.buffer = input.buffer;
+    const gain = ctx.createGain();
+    source.connect(gain).connect(input.node);
+    const voice: Voice = { source, gain };
+    source.onended = () => {
+      const index = input.voices.indexOf(voice);
+      if (index !== -1) input.voices.splice(index, 1);
+      gain.disconnect();
+      input.live--;
+      if (input.disposed && input.live === 0) input.node?.disconnect();
+      this.liveVoices--;
+      this.sourcesChanged();
+    };
+    source.start();
+    input.voices.push(voice);
+    input.live++;
+    this.liveVoices++;
+    this.sourcesChanged();
   }
 
-  private applyVolume() {
-    if (!this.graph) return;
-    const trim = this.test ? TEST_HEARD_AMPLITUDE / this.testAmplitude : 1;
-    this.graph.volume.gain.value = this.volumeLevel * trim;
+  private chokeAll(input: InputState) {
+    while (input.voices.length > 0) this.choke(input, input.voices[0]);
+  }
+
+  /** Fades a voice out; its `onended` then releases it. */
+  private choke(input: InputState, voice: Voice) {
+    input.voices.splice(input.voices.indexOf(voice), 1);
+    const { gain, source } = voice;
+    const now = source.context.currentTime;
+    gain.gain.setValueAtTime(1, now);
+    gain.gain.linearRampToValueAtTime(0, now + CHOKE_FADE_S);
+    source.stop(now + CHOKE_FADE_S);
   }
 
   private sourcesChanged() {

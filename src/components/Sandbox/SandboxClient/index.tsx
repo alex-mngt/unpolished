@@ -2,42 +2,124 @@
 
 import { ChangeEvent, FC, useEffect, useRef, useState } from "react";
 
-import { Button } from "@/components/UI/Button";
 import { Goniometer } from "@/components/Visualizers/Goniometer";
 import { VUMeter } from "@/components/Visualizers/VUMeter";
 import { AudioEngineContext } from "@/lib/audio/context";
-import {
-  AudioEngine,
-  DEFAULT_TEST_LEVEL_DBFS,
-  TestPreset,
-} from "@/lib/audio/engine";
+import { AudioEngine, AudioInput, InputMode } from "@/lib/audio/engine";
 
-import { isPlayShortcut } from "./shortcut";
+import { PAD_KEYS, shortcutAction } from "./shortcut";
 
-type Source = "file" | "test";
-
-const PRESETS: { value: TestPreset; label: string }[] = [
-  { value: "mono", label: "Mono centre" },
-  { value: "left", label: "Left only" },
-  { value: "right", label: "Right only" },
+const MODES: { value: InputMode; label: string }[] = [
+  { value: "mono", label: "Mono" },
+  { value: "poly", label: "Poly" },
 ];
 
-const LEVELS: { value: number; label: string }[] = [
-  {
-    value: DEFAULT_TEST_LEVEL_DBFS,
-    label: `−${-DEFAULT_TEST_LEVEL_DBFS} dBFS`,
-  },
-  { value: -18, label: "−18 dBFS (0 VU)" },
-];
+interface PadProps {
+  input: AudioInput;
+  shortcut: string;
+}
+
+const Pad: FC<PadProps> = ({ input, shortcut }) => {
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [gain, setGain] = useState(1);
+  const [mode, setMode] = useState<InputMode>("mono");
+  const requests = useRef(0);
+
+  const selectFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    // Picks can overlap; only the latest one may report back.
+    const request = ++requests.current;
+    try {
+      const data = await file.arrayBuffer();
+      // Checked before decoding too, so the engine sees loads in pick order.
+      if (request !== requests.current) return;
+      await input.load(data);
+      if (request !== requests.current) return;
+      setFileName(file.name);
+      setError(null);
+    } catch {
+      if (request !== requests.current) return;
+      setError(`Could not decode ${file.name}`);
+    }
+  };
+
+  const changeGain = (event: ChangeEvent<HTMLInputElement>) => {
+    const next = Number(event.target.value);
+    setGain(next);
+    input.setGain(next);
+  };
+
+  const selectMode = (event: ChangeEvent<HTMLSelectElement>) => {
+    const next = event.target.value as InputMode;
+    setMode(next);
+    input.setMode(next);
+    // A focused select keeps every key press, shortcuts included.
+    event.target.blur();
+  };
+
+  const key = shortcut.toUpperCase();
+
+  return (
+    <fieldset className="flex flex-col gap-3 border border-foreground rounded-xs p-3">
+      <legend className="px-1">
+        Pad <kbd>{key}</kbd>
+      </legend>
+      <input
+        type="file"
+        accept="audio/*"
+        aria-label={`Audio file for pad ${key}`}
+        onChange={selectFile}
+      />
+      <p>
+        {fileName ? (
+          <>
+            {fileName}: press <kbd>{key}</kbd> to play
+          </>
+        ) : (
+          "No sample loaded"
+        )}
+      </p>
+      {error && (
+        <p role="alert" className="text-(--danger)">
+          {error}
+        </p>
+      )}
+      <div className="flex items-center gap-3">
+        <label className="flex items-center gap-3">
+          Gain
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            value={gain}
+            onChange={changeGain}
+          />
+        </label>
+        <select
+          aria-label={`Mode of pad ${key}`}
+          value={mode}
+          onChange={selectMode}
+          className="border border-foreground rounded-xs py-2 px-3 bg-background"
+        >
+          {MODES.map(({ value, label }) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </div>
+    </fieldset>
+  );
+};
 
 export const SandboxClient: FC = () => {
-  const [engine] = useState(() => new AudioEngine());
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const [source, setSource] = useState<Source>("file");
-  const [fileUrl, setFileUrl] = useState<string | null>(null);
-  const [preset, setPreset] = useState<TestPreset>("mono");
-  const [level, setLevel] = useState(DEFAULT_TEST_LEVEL_DBFS);
-  const [toneOn, setToneOn] = useState(false);
+  const [{ engine, inputs }] = useState(() => {
+    const engine = new AudioEngine();
+    return { engine, inputs: PAD_KEYS.map(() => engine.createInput()) };
+  });
   const [volume, setVolume] = useState(1);
 
   useEffect(() => {
@@ -46,67 +128,15 @@ export const SandboxClient: FC = () => {
   }, [engine]);
 
   useEffect(() => {
-    if (!fileUrl) return;
-    return () => URL.revokeObjectURL(fileUrl);
-  }, [fileUrl]);
-
-  useEffect(() => {
-    if (!fileUrl || source !== "file") return;
-    // Every press restarts the song from the top; there is no pause.
+    // The engine's AudioContext starts running here, inside a user gesture.
     const onKeyDown = (event: KeyboardEvent) => {
-      const audio = audioRef.current;
-      if (!audio || !isPlayShortcut(event)) return;
-      audio.currentTime = 0;
-      // A rejected play() also fires "error", which onStopped handles.
-      audio.play().catch(() => {});
+      const action = shortcutAction(event);
+      if (action?.type === "trigger") inputs[action.pad]?.trigger();
+      else if (action?.type === "stop") engine.stopAll();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [fileUrl, source]);
-
-  const stopTone = () => {
-    engine.stopTest();
-    setToneOn(false);
-  };
-
-  const selectSource = (next: Source) => {
-    if (next === "test") audioRef.current?.pause();
-    else stopTone();
-    setSource(next);
-  };
-
-  const selectFile = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) setFileUrl(URL.createObjectURL(file));
-  };
-
-  // The engine's AudioContext is created here, inside a user gesture.
-  const onPlay = () => {
-    if (!audioRef.current) return;
-    engine.attachMedia(audioRef.current);
-    engine.setMediaPlaying(true);
-  };
-
-  // Loading a new file stops playback without firing "pause".
-  const onStopped = () => engine.setMediaPlaying(false);
-
-  const toggleTone = () => {
-    if (toneOn) return stopTone();
-    engine.startTest(preset);
-    setToneOn(true);
-  };
-
-  const selectPreset = (event: ChangeEvent<HTMLSelectElement>) => {
-    const next = event.target.value as TestPreset;
-    setPreset(next);
-    engine.setTestPreset(next);
-  };
-
-  const selectLevel = (event: ChangeEvent<HTMLSelectElement>) => {
-    const next = Number(event.target.value);
-    setLevel(next);
-    engine.setTestLevel(next);
-  };
+  }, [engine, inputs]);
 
   const changeVolume = (event: ChangeEvent<HTMLInputElement>) => {
     const next = Number(event.target.value);
@@ -117,77 +147,13 @@ export const SandboxClient: FC = () => {
   return (
     <AudioEngineContext value={engine}>
       <main className="flex flex-col gap-6 p-6 max-w-xl">
-        <fieldset className="flex gap-4">
-          <legend className="sr-only">Audio source</legend>
-          <label className="flex items-center gap-2">
-            <input
-              type="radio"
-              name="source"
-              checked={source === "file"}
-              onChange={() => selectSource("file")}
-            />
-            Audio file
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="radio"
-              name="source"
-              checked={source === "test"}
-              onChange={() => selectSource("test")}
-            />
-            Test tone
-          </label>
-        </fieldset>
+        {inputs.map((input, index) => (
+          <Pad key={PAD_KEYS[index]} input={input} shortcut={PAD_KEYS[index]} />
+        ))}
 
-        {/* Kept mounted in both modes: an element can only be attached once. */}
-        <div className={source === "file" ? "flex flex-col gap-3" : "hidden"}>
-          {fileUrl ? (
-            <p>
-              Press <kbd>A</kbd> to play
-            </p>
-          ) : (
-            <input type="file" accept="audio/*" onChange={selectFile} />
-          )}
-          <audio
-            ref={audioRef}
-            src={fileUrl ?? undefined}
-            onPlay={onPlay}
-            onPause={onStopped}
-            onEnded={onStopped}
-            onEmptied={onStopped}
-            onError={onStopped}
-          />
-        </div>
-
-        {source === "test" && (
-          <div className="flex items-center gap-3">
-            <Button onClick={toggleTone}>{toneOn ? "Stop" : "Start"}</Button>
-            <select
-              aria-label="Test preset"
-              value={preset}
-              onChange={selectPreset}
-              className="border border-foreground rounded-xs py-2 px-3 bg-background"
-            >
-              {PRESETS.map(({ value, label }) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-            <select
-              aria-label="Test level"
-              value={level}
-              onChange={selectLevel}
-              className="border border-foreground rounded-xs py-2 px-3 bg-background"
-            >
-              {LEVELS.map(({ value, label }) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+        <p>
+          Press <kbd>Esc</kbd> to stop everything
+        </p>
 
         <label className="flex items-center gap-3">
           Volume
