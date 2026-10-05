@@ -6,6 +6,7 @@ import { Goniometer } from "@/components/Visualizers/Goniometer";
 import { VUMeter } from "@/components/Visualizers/VUMeter";
 import { AudioEngineContext } from "@/lib/audio/context";
 import { AudioEngine, AudioInput, InputMode } from "@/lib/audio/engine";
+import { Sample, SAMPLES } from "@/samples";
 
 import { PAD_KEYS, shortcutAction } from "./shortcut";
 
@@ -17,20 +18,51 @@ const MODES: { value: InputMode; label: string }[] = [
 interface PadProps {
   input: AudioInput;
   shortcut: string;
+  /** Loaded when the pad mounts; the pad starts empty without one. */
+  sample?: Sample;
 }
 
-const Pad: FC<PadProps> = ({ input, shortcut }) => {
+const Pad: FC<PadProps> = ({ input, shortcut, sample }) => {
   const [fileName, setFileName] = useState<string | null>(null);
+  const [loading, setLoading] = useState(sample !== undefined);
   const [error, setError] = useState<string | null>(null);
   const [gain, setGain] = useState(1);
   const [mode, setMode] = useState<InputMode>("mono");
   const requests = useRef(0);
+
+  useEffect(() => {
+    if (!sample) return;
+    // A file picked while this is still loading wins, like any later pick.
+    const request = ++requests.current;
+    const controller = new AbortController();
+    const stale = () =>
+      controller.signal.aborted || request !== requests.current;
+    const load = async () => {
+      try {
+        const response = await fetch(sample.url, { signal: controller.signal });
+        if (!response.ok) throw new Error(response.statusText);
+        const data = await response.arrayBuffer();
+        if (stale()) return;
+        await input.load(data);
+        if (stale()) return;
+        setFileName(sample.label);
+        setError(null);
+      } catch {
+        if (stale()) return;
+        setError(`Could not load ${sample.label}`);
+      }
+      setLoading(false);
+    };
+    void load();
+    return () => controller.abort();
+  }, [input, sample]);
 
   const selectFile = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
     // Picks can overlap; only the latest one may report back.
     const request = ++requests.current;
+    setLoading(false);
     try {
       const data = await file.arrayBuffer();
       // Checked before decoding too, so the engine sees loads in pick order.
@@ -62,7 +94,7 @@ const Pad: FC<PadProps> = ({ input, shortcut }) => {
   const key = shortcut.toUpperCase();
 
   return (
-    <fieldset className="flex flex-col gap-3 border border-foreground rounded-xs p-3">
+    <fieldset className="flex flex-col gap-3 min-w-0 border border-foreground rounded-xs p-3">
       <legend className="px-1">
         Pad <kbd>{key}</kbd>
       </legend>
@@ -71,12 +103,15 @@ const Pad: FC<PadProps> = ({ input, shortcut }) => {
         accept="audio/*"
         aria-label={`Audio file for pad ${key}`}
         onChange={selectFile}
+        className="w-full"
       />
       <p>
         {fileName ? (
           <>
             {fileName}: press <kbd>{key}</kbd> to play
           </>
+        ) : loading ? (
+          "Loading…"
         ) : (
           "No sample loaded"
         )}
@@ -86,8 +121,8 @@ const Pad: FC<PadProps> = ({ input, shortcut }) => {
           {error}
         </p>
       )}
-      <div className="flex items-center gap-3">
-        <label className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="flex flex-1 items-center gap-3 min-w-0">
           Gain
           <input
             type="range"
@@ -96,6 +131,7 @@ const Pad: FC<PadProps> = ({ input, shortcut }) => {
             step={0.01}
             value={gain}
             onChange={changeGain}
+            className="flex-1 min-w-0"
           />
         </label>
         <select
@@ -146,10 +182,18 @@ export const SandboxClient: FC = () => {
 
   return (
     <AudioEngineContext value={engine}>
-      <main className="flex flex-col gap-6 p-6 max-w-xl">
-        {inputs.map((input, index) => (
-          <Pad key={PAD_KEYS[index]} input={input} shortcut={PAD_KEYS[index]} />
-        ))}
+      <main className="flex flex-col gap-6 p-6">
+        {/* Four columns, so that the pads sit like their keys do. */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {inputs.map((input, index) => (
+            <Pad
+              key={PAD_KEYS[index]}
+              input={input}
+              shortcut={PAD_KEYS[index]}
+              sample={SAMPLES[index]}
+            />
+          ))}
+        </div>
 
         <p>
           Press <kbd>Esc</kbd> to stop everything

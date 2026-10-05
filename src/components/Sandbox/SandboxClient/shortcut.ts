@@ -31,8 +31,20 @@ const takesTyping = (target: EventTarget | null) => {
 
 export type ShortcutAction = { type: "trigger"; pad: number } | { type: "stop" };
 
-/** One key per pad, in pad order. */
-export const PAD_KEYS: readonly string[] = ["a", "s"];
+/**
+ * One key per pad, in pad order: the two left-hand rows of four keys of an
+ * AZERTY keyboard, top row first.
+ */
+export const PAD_KEYS: readonly string[] = [
+  "a",
+  "z",
+  "e",
+  "r",
+  "q",
+  "s",
+  "d",
+  "f",
+];
 
 /** What a keydown asks for, if it is a deliberate, single press of a shortcut. */
 export const shortcutAction = (event: ShortcutEvent): ShortcutAction | null => {

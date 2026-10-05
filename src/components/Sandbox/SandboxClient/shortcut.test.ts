@@ -20,10 +20,17 @@ describe("shortcutAction", () => {
     expect(shortcutAction(press())).toEqual({ type: "trigger", pad: 0 });
   });
 
-  test("triggers the second pad on a plain s press", () => {
-    expect(shortcutAction(press({ key: "s" }))).toEqual({
+  test("triggers the second pad on a plain z press", () => {
+    expect(shortcutAction(press({ key: "z" }))).toEqual({
       type: "trigger",
       pad: 1,
+    });
+  });
+
+  test("starts the second row of pads on q", () => {
+    expect(shortcutAction(press({ key: "q" }))).toEqual({
+      type: "trigger",
+      pad: 4,
     });
   });
 
@@ -45,7 +52,7 @@ describe("shortcutAction", () => {
   });
 
   test("ignores other keys", () => {
-    expect(shortcutAction(press({ key: "d" }))).toBeNull();
+    expect(shortcutAction(press({ key: "p" }))).toBeNull();
   });
 
   test("ignores a synthetic event without a key", () => {
