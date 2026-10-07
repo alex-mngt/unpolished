@@ -15,6 +15,10 @@ const NON_TEXT_INPUT_TYPES = new Set([
   "submit",
 ]);
 
+// Custom selects: a typed letter jumps to a matching option. Checked by
+// ancestry since focus can sit on the trigger, the popup or an option.
+const TYPEAHEAD_SELECTOR = '[role="combobox"], [role="listbox"]';
+
 // Elements where a typed letter belongs to the element, not to the page.
 const takesTyping = (target: EventTarget | null) => {
   const element = target as Partial<HTMLInputElement> | null;
@@ -23,13 +27,15 @@ const takesTyping = (target: EventTarget | null) => {
   if (element.tagName === "TEXTAREA" || element.tagName === "SELECT") {
     return true;
   }
+  if (element.closest?.(TYPEAHEAD_SELECTOR)) return true;
   return (
     element.tagName === "INPUT" &&
     !NON_TEXT_INPUT_TYPES.has(element.type ?? "text")
   );
 };
 
-export type ShortcutAction = { type: "trigger"; pad: number } | { type: "stop" };
+export type ShortcutAction =
+  { type: "trigger"; pad: number } | { type: "stop" };
 
 /**
  * One key per pad, in pad order: the two left-hand rows of four keys of an

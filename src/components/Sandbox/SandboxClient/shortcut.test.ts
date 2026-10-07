@@ -12,8 +12,20 @@ const press = (overrides: Partial<ShortcutEvent> = {}): ShortcutEvent => ({
   ...overrides,
 });
 
-const element = (tagName: string, props: object = {}) =>
-  ({ tagName, ...props }) as unknown as EventTarget;
+interface ElementProps {
+  type?: string;
+  role?: string;
+  isContentEditable?: boolean;
+  /** Role of an ancestor, for elements inside a custom select. */
+  within?: string;
+}
+
+const element = (tagName: string, props: ElementProps = {}) => {
+  const roles = [props.within, props.role].filter(Boolean);
+  const closest = (selector: string) =>
+    roles.some((role) => selector.includes(`[role="${role}"]`)) ? {} : null;
+  return { tagName, closest, ...props } as unknown as EventTarget;
+};
 
 describe("shortcutAction", () => {
   test("triggers the first pad on a plain a press", () => {
@@ -75,6 +87,10 @@ describe("shortcutAction", () => {
     ["a text input", element("INPUT", { type: "text" })],
     ["a textarea", element("TEXTAREA")],
     ["a select", element("SELECT")],
+    ["a combobox trigger", element("BUTTON", { role: "combobox" })],
+    ["an open listbox", element("DIV", { role: "listbox" })],
+    ["a listbox option", element("DIV", { role: "option", within: "listbox" })],
+    ["a select popup", element("DIV", { within: "listbox" })],
     ["editable content", element("DIV", { isContentEditable: true })],
   ])("ignores a press typed into %s", (_, target) => {
     expect(shortcutAction(press({ target }))).toBeNull();
