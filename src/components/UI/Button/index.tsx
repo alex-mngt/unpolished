@@ -1,18 +1,19 @@
 import { cn } from "cn";
-import { FC } from "react";
+import { ComponentProps, FC } from "react";
+import { Button as ShadcnButton } from "@/components/shadcn/button";
 
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {}
+type ButtonProps = Omit<ComponentProps<typeof ShadcnButton>, "variant" | "size">;
 
-export const Button: FC<ButtonProps> = ({ children, className, ...props }) => {
+export const Button: FC<ButtonProps> = ({ className, ...props }) => {
   return (
-    <button
+    <ShadcnButton
+      variant={null}
+      size={null}
       className={cn(
         "border border-foreground font-black text-xl uppercase py-2 px-3 rounded-xs text-foreground/80 hover:text-foreground transition-colors",
         className,
       )}
       {...props}
-    >
-      {children}
-    </button>
+    />
   );
 };
