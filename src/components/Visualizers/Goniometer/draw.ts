@@ -2,28 +2,28 @@
 // so it can move to an OffscreenCanvas worker unchanged.
 // Both functions expect the context to be scaled so that 1 unit = 1 CSS pixel.
 
+import type { GoniometerConfig } from "./config";
+
 type Context2D = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
-/** Dot edge length in CSS pixels. */
-export const DOT_SIZE = 1.5;
-/** Time constant of the fade: the trace is at ~5% after three of these. */
-export const FADE_TIME_MS = 100;
-/** Space kept around the full-scale diamond for the axis letters. */
-export const PADDING = 14;
-export const GRID_ALPHA = 0.3;
 export const LABEL_FONT = "10px ui-monospace, Menlo, monospace";
 
 // Distance in pixels from the centre to a diamond vertex (L = R = 1).
-const halfExtent = (size: number) => size / 2 - PADDING;
+const halfExtent = (size: number, padding: number) => size / 2 - padding;
 
-export const drawGrid = (ctx: Context2D, size: number, color: string) => {
+export const drawGrid = (
+  ctx: Context2D,
+  size: number,
+  color: string,
+  { padding, gridAlpha }: GoniometerConfig,
+) => {
   ctx.clearRect(0, 0, size, size);
-  const half = halfExtent(size);
+  const half = halfExtent(size, padding);
   if (half <= 0) return;
   const c = size / 2;
   const k = half / 2;
 
-  ctx.globalAlpha = GRID_ALPHA;
+  ctx.globalAlpha = gridAlpha;
   ctx.strokeStyle = color;
   ctx.lineWidth = 1;
   ctx.beginPath();
@@ -69,25 +69,26 @@ export const drawTrace = (
   right: Float32Array,
   fresh: number,
   dtMs: number,
+  { dotSize, fadeMs, padding }: GoniometerConfig,
 ) => {
-  const half = halfExtent(size);
+  const half = halfExtent(size, padding);
   if (half <= 0) return;
 
   // Time-based so the decay looks the same at 60 Hz and 120 Hz.
   ctx.globalCompositeOperation = "destination-out";
-  ctx.globalAlpha = 1 - Math.exp(-dtMs / FADE_TIME_MS);
+  ctx.globalAlpha = 1 - Math.exp(-dtMs / fadeMs);
   ctx.fillRect(0, 0, size, size);
   ctx.globalCompositeOperation = "source-over";
   ctx.globalAlpha = 1;
 
   // The 1/√2 of the rotation is folded into the pixel scale.
   const k = half / 2;
-  const origin = size / 2 - DOT_SIZE / 2;
+  const origin = size / 2 - dotSize / 2;
   ctx.beginPath();
   for (let i = left.length - fresh; i < left.length; i++) {
     const l = left[i];
     const r = right[i];
-    ctx.rect(origin + (r - l) * k, origin - (l + r) * k, DOT_SIZE, DOT_SIZE);
+    ctx.rect(origin + (r - l) * k, origin - (l + r) * k, dotSize, dotSize);
   }
   ctx.fill();
 };

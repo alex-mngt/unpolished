@@ -7,6 +7,7 @@ import { useAudioEngine } from "@/lib/audio/context";
 
 import { mountCanvasLayers } from "../canvasLayers";
 import { advanceNeedle, createNeedle, resetNeedle } from "./ballistics";
+import type { VUMeterConfig } from "./config";
 import { drawFace, drawNeedle } from "./draw";
 
 type Channel = "left" | "right";
@@ -15,20 +16,19 @@ const LABELS: Record<Channel, string> = { left: "L", right: "R" };
 
 interface VUMeterProps {
   channel: Channel;
-  /** Peak level of the sine that reads 0 VU. */
-  referenceDbfs?: number;
+  config: VUMeterConfig;
   className?: string;
 }
 
-export const VUMeter: FC<VUMeterProps> = ({
-  channel,
-  referenceDbfs = -18,
-  className,
-}) => {
+export const VUMeter: FC<VUMeterProps> = ({ channel, config, className }) => {
   const engine = useAudioEngine();
   const containerRef = useRef<HTMLDivElement>(null);
   const faceRef = useRef<HTMLCanvasElement>(null);
   const needleRef = useRef<HTMLCanvasElement>(null);
+  // Read per frame rather than closed over, so a config change does not
+  // remount the layers and snap the needle back to rest.
+  const configRef = useRef(config);
+  const relayoutRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     const container = containerRef.current;
@@ -41,9 +41,10 @@ export const VUMeter: FC<VUMeterProps> = ({
     const needle = createNeedle();
     let width = 0;
     let height = 0;
-    const paint = () => drawNeedle(needleCtx, width, height, needle.position);
+    const paint = () =>
+      drawNeedle(needleCtx, width, height, needle.position, configRef.current);
 
-    return mountCanvasLayers({
+    const layers = mountCanvasLayers({
       engine,
       container,
       canvases: [face, needleCanvas],
@@ -52,14 +53,22 @@ export const VUMeter: FC<VUMeterProps> = ({
         height = nextHeight;
         const style = getComputedStyle(container);
         const red = style.getPropertyValue("--danger").trim() || style.color;
-        drawFace(faceCtx, width, height, style.color, red, LABELS[channel]);
+        drawFace(
+          faceCtx,
+          width,
+          height,
+          style.color,
+          red,
+          LABELS[channel],
+          configRef.current,
+        );
         needleCtx.strokeStyle = style.color;
         // No frames arrive while idle, so the needle is repainted here too.
         paint();
       },
       onFrame: (left, right, fresh, dtMs) => {
         const samples = channel === "left" ? left : right;
-        advanceNeedle(needle, samples, fresh, dtMs, referenceDbfs);
+        advanceNeedle(needle, samples, fresh, dtMs, configRef.current);
         paint();
       },
       onIdle: () => {
@@ -67,7 +76,18 @@ export const VUMeter: FC<VUMeterProps> = ({
         paint();
       },
     });
-  }, [engine, channel, referenceDbfs]);
+    relayoutRef.current = layers.relayout;
+    return () => {
+      layers.unmount();
+      relayoutRef.current = () => {};
+    };
+  }, [engine, channel]);
+
+  useEffect(() => {
+    configRef.current = config;
+    // The face is static: it is only redrawn when its inputs change.
+    relayoutRef.current();
+  }, [config]);
 
   return (
     <div

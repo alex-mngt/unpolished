@@ -1,3 +1,6 @@
+import { DEFAULT_ENGINE_CONFIG, type EngineConfig } from "./config";
+import { dbToGain } from "./db";
+
 /** What a trigger does to the voices its input is already sounding. */
 export type InputMode = "mono" | "poly";
 
@@ -48,6 +51,7 @@ interface Subscriber {
 interface Graph {
   ctx: AudioContext;
   mix: GainNode;
+  limiter: DynamicsCompressorNode;
   volume: GainNode;
   analyserL: AnalyserNode;
   analyserR: AnalyserNode;
@@ -73,32 +77,8 @@ interface InputState {
   disposed: boolean;
 }
 
-const FFT_SIZE = 2048;
-// Keep ticking this long after the last voice ends so traces can fade out
-// and needles can fall back to rest.
-const TAIL_MS = 1500;
 // Frame gaps longer than this (tab was hidden) are treated as this long.
 const MAX_DT_MS = 100;
-/** Voices one input can sound at once in poly mode; the oldest is stolen. */
-export const MAX_VOICES = 8;
-// Long enough that a voice cut mid-waveform does not click.
-const CHOKE_FADE_S = 0.005;
-// Time constant gain changes glide with, so dragging a slider does not zip.
-const GAIN_GLIDE_S = 0.01;
-
-// Trim applied to the sum (-3 dB); the limiter takes care of the rest.
-const HEADROOM = Math.SQRT1_2;
-// A soft knee that ends at full scale, so the limiter eases in instead of
-// clamping. It is not a brick wall: a transient can still get past it during
-// the attack.
-const LIMITER_THRESHOLD_DB = -6;
-const LIMITER_KNEE_DB = 6;
-const LIMITER_RATIO = 8;
-const LIMITER_ATTACK_S = 0.003;
-const LIMITER_RELEASE_S = 0.25;
-
-const glide = (gain: GainNode, level: number) =>
-  gain.gain.setTargetAtTime(level, gain.context.currentTime, GAIN_GLIDE_S);
 
 /**
  * One AudioContext, one stereo tap and one animation loop shared by every
@@ -111,22 +91,67 @@ const glide = (gain: GainNode, level: number) =>
  * The tap sits after the limiter and before the volume, so the visualizers
  * see every input at once, at the level that reaches the volume control. The
  * limiter keeps the sum near full scale, short transients aside.
+ *
+ * Every number in `EngineConfig` can be changed while playing: see
+ * `configure`.
  */
 export class AudioEngine {
   private graph: Graph | null = null;
+  private config: EngineConfig;
   private inputs = new Set<InputState>();
   private subscribers = new Set<Subscriber>();
-  private left = new Float32Array(FFT_SIZE);
-  private right = new Float32Array(FFT_SIZE);
+  private left: Float32Array<ArrayBuffer>;
+  private right: Float32Array<ArrayBuffer>;
   private liveVoices = 0;
   private volumeLevel = 1;
   private raf = 0;
   private lastFrame = 0;
   private tailUntil = 0;
 
+  constructor(config: EngineConfig = DEFAULT_ENGINE_CONFIG) {
+    this.config = config;
+    this.left = new Float32Array(config.fftSize);
+    this.right = new Float32Array(config.fftSize);
+  }
+
+  /**
+   * Applies a new configuration, to the live graph too. Voice and loop
+   * settings are read when they are next needed; node parameters are set
+   * right away, gains gliding so nothing zips.
+   */
+  configure(config: EngineConfig) {
+    this.config = config;
+    if (this.left.length !== config.fftSize) {
+      this.left = new Float32Array(config.fftSize);
+      this.right = new Float32Array(config.fftSize);
+    }
+    const graph = this.graph;
+    if (!graph) return;
+    this.glide(graph.mix, dbToGain(config.headroomDb));
+    this.setLimiter(graph.limiter, config);
+    graph.analyserL.fftSize = graph.analyserR.fftSize = config.fftSize;
+  }
+
+  private setLimiter(limiter: DynamicsCompressorNode, config: EngineConfig) {
+    limiter.threshold.value = config.limiterThresholdDb;
+    limiter.knee.value = config.limiterKneeDb;
+    limiter.ratio.value = config.limiterRatio;
+    limiter.attack.value = config.limiterAttackMs / 1000;
+    limiter.release.value = config.limiterReleaseMs / 1000;
+  }
+
+  private glide(gain: GainNode, level: number) {
+    gain.gain.setTargetAtTime(
+      level,
+      gain.context.currentTime,
+      this.config.gainGlideMs / 1000,
+    );
+  }
+
   /** A context made outside a user gesture stays suspended until a trigger. */
   private ensureGraph(): Graph {
     if (this.graph) return this.graph;
+    const { config } = this;
 
     const ctx = new AudioContext();
     const mix = ctx.createGain();
@@ -134,20 +159,16 @@ export class AudioEngine {
     mix.channelCount = 2;
     mix.channelCountMode = "explicit";
     mix.channelInterpretation = "speakers";
-    mix.gain.value = HEADROOM;
+    mix.gain.value = dbToGain(config.headroomDb);
 
     const limiter = ctx.createDynamicsCompressor();
-    limiter.threshold.value = LIMITER_THRESHOLD_DB;
-    limiter.knee.value = LIMITER_KNEE_DB;
-    limiter.ratio.value = LIMITER_RATIO;
-    limiter.attack.value = LIMITER_ATTACK_S;
-    limiter.release.value = LIMITER_RELEASE_S;
+    this.setLimiter(limiter, config);
     mix.connect(limiter);
 
     const splitter = ctx.createChannelSplitter(2);
     const analyserL = ctx.createAnalyser();
     const analyserR = ctx.createAnalyser();
-    analyserL.fftSize = analyserR.fftSize = FFT_SIZE;
+    analyserL.fftSize = analyserR.fftSize = config.fftSize;
     limiter.connect(splitter);
     splitter.connect(analyserL, 0);
     splitter.connect(analyserR, 1);
@@ -157,7 +178,7 @@ export class AudioEngine {
     limiter.connect(volume);
     volume.connect(ctx.destination);
 
-    this.graph = { ctx, mix, volume, analyserL, analyserR };
+    this.graph = { ctx, mix, limiter, volume, analyserL, analyserR };
     return this.graph;
   }
 
@@ -183,7 +204,7 @@ export class AudioEngine {
       trigger: () => this.trigger(input),
       setGain: (level) => {
         input.level = level;
-        if (input.node) glide(input.node, level);
+        if (input.node) this.glide(input.node, level);
       },
       setMode: (mode) => {
         input.mode = mode;
@@ -205,7 +226,7 @@ export class AudioEngine {
 
   setVolume(level: number) {
     this.volumeLevel = level;
-    if (this.graph) glide(this.graph.volume, level);
+    if (this.graph) this.glide(this.graph.volume, level);
   }
 
   subscribe(onFrame: FrameCallback, onIdle?: () => void): Subscription {
@@ -254,7 +275,7 @@ export class AudioEngine {
     }
 
     if (input.mode === "mono") this.chokeAll(input);
-    else if (input.voices.length >= MAX_VOICES) {
+    else if (input.voices.length >= this.config.maxVoices) {
       this.choke(input, input.voices[0]);
     }
 
@@ -288,9 +309,10 @@ export class AudioEngine {
     input.voices.splice(input.voices.indexOf(voice), 1);
     const { gain, source } = voice;
     const now = source.context.currentTime;
+    const end = now + this.config.chokeFadeMs / 1000;
     gain.gain.setValueAtTime(1, now);
-    gain.gain.linearRampToValueAtTime(0, now + CHOKE_FADE_S);
-    source.stop(now + CHOKE_FADE_S);
+    gain.gain.linearRampToValueAtTime(0, end);
+    source.stop(end);
   }
 
   private sourcesChanged() {
@@ -298,7 +320,7 @@ export class AudioEngine {
       void this.graph?.ctx.resume();
       this.kick();
     } else {
-      this.tailUntil = performance.now() + TAIL_MS;
+      this.tailUntil = performance.now() + this.config.tailMs;
     }
   }
 
@@ -334,7 +356,7 @@ export class AudioEngine {
       graph.analyserL.getFloatTimeDomainData(this.left);
       graph.analyserR.getFloatTimeDomainData(this.right);
       const fresh = Math.min(
-        FFT_SIZE,
+        this.left.length,
         Math.ceil((dt * graph.ctx.sampleRate) / 1000),
       );
       for (const subscriber of this.subscribers) {

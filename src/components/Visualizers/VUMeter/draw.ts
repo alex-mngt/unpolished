@@ -6,18 +6,24 @@ import { vuToPosition } from "./ballistics";
 
 type Context2D = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
+export interface FaceConfig {
+  /** Angle in degrees between the vertical and either end of the scale. */
+  halfSweepDeg: number;
+}
+
 /** Marks on the scale, in VU. The ones above 0 are drawn in red. */
 export const MARKS = [-20, -10, -7, -5, -3, -2, -1, 0, 1, 2, 3];
-/** Angle between the vertical and either end of the scale (rest and +3 VU). */
-export const HALF_SWEEP = (40 * Math.PI) / 180;
 export const FONT_FAMILY = "ui-monospace, Menlo, monospace";
 
 const SCALE_END = vuToPosition(MARKS[MARKS.length - 1]);
 
+const halfSweepOf = ({ halfSweepDeg }: FaceConfig) =>
+  (halfSweepDeg * Math.PI) / 180;
+
 // The pivot sits below the visible window, as on a real meter, which flattens
 // the arc. Everything is proportional to the width of the face, and the arc is
 // pushed up until its labels touch the top edge.
-const geometry = (width: number) => {
+const geometry = (width: number, halfSweep: number) => {
   const radius = width * 0.55;
   const tick = width * 0.027;
   const font = Math.max(9, width * 0.033);
@@ -28,20 +34,21 @@ const geometry = (width: number) => {
     radius,
     tick,
     font,
+    halfSweep,
     // Just under the ends of the scale.
-    legend: top + radius * (1 - Math.cos(HALF_SWEEP)) + font * 1.8,
+    legend: top + radius * (1 - Math.cos(halfSweep)) + font * 1.8,
   };
 };
 
 // Clockwise from the vertical; linear in voltage, which is what crowds the
 // low marks to the left and spreads -3 to +3 over the right half.
-const angleOf = (position: number) =>
-  HALF_SWEEP * ((2 * position) / SCALE_END - 1);
+const angleOf = (position: number, halfSweep: number) =>
+  halfSweep * ((2 * position) / SCALE_END - 1);
 
 // Canvas arcs measure their angles clockwise from the x axis.
 const arc = (
   ctx: Context2D,
-  { cx, cy, radius }: ReturnType<typeof geometry>,
+  { cx, cy, radius, halfSweep }: ReturnType<typeof geometry>,
   from: number,
   to: number,
 ) => {
@@ -50,8 +57,8 @@ const arc = (
     cx,
     cy,
     radius,
-    angleOf(from) - Math.PI / 2,
-    angleOf(to) - Math.PI / 2,
+    angleOf(from, halfSweep) - Math.PI / 2,
+    angleOf(to, halfSweep) - Math.PI / 2,
   );
   ctx.stroke();
 };
@@ -63,10 +70,11 @@ export const drawFace = (
   color: string,
   red: string,
   label: string,
+  config: FaceConfig,
 ) => {
   ctx.clearRect(0, 0, width, height);
   if (width <= 0 || height <= 0) return;
-  const g = geometry(width);
+  const g = geometry(width, halfSweepOf(config));
 
   ctx.strokeStyle = color;
   ctx.lineWidth = 1;
@@ -80,7 +88,7 @@ export const drawFace = (
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   for (const vu of MARKS) {
-    const angle = angleOf(vuToPosition(vu));
+    const angle = angleOf(vuToPosition(vu), g.halfSweep);
     const sin = Math.sin(angle);
     const cos = Math.cos(angle);
     const outer = g.radius + g.tick;
@@ -108,11 +116,12 @@ export const drawNeedle = (
   width: number,
   height: number,
   position: number,
+  config: FaceConfig,
 ) => {
   ctx.clearRect(0, 0, width, height);
   if (width <= 0 || height <= 0) return;
-  const g = geometry(width);
-  const angle = angleOf(position);
+  const g = geometry(width, halfSweepOf(config));
+  const angle = angleOf(position, g.halfSweep);
   const length = g.radius + g.tick;
   ctx.lineWidth = 1.5;
   ctx.beginPath();

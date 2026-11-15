@@ -2,6 +2,13 @@
 
 import { ChangeEvent, FC, useEffect, useState } from "react";
 
+import { Pad } from "@/components/Sampler/Pad";
+import { SettingsSheet } from "@/components/Sampler/Settings";
+import {
+  useSettingsForm,
+  useValidSection,
+} from "@/components/Sampler/Settings/form";
+import { DEFAULT_SETTINGS } from "@/components/Sampler/Settings/schema";
 import { Goniometer } from "@/components/Visualizers/Goniometer";
 import { VUMeter } from "@/components/Visualizers/VUMeter";
 import { AudioEngineContext } from "@/lib/audio/context";
@@ -9,14 +16,19 @@ import { AudioEngine } from "@/lib/audio/engine";
 import { SAMPLES } from "@/samples";
 
 import { PAD_KEYS, shortcutAction } from "./shortcut";
-import { Pad } from "@/components/Sampler/Pad";
 
 export const SandboxClient: FC = () => {
   const [{ engine, inputs }] = useState(() => {
-    const engine = new AudioEngine();
+    const engine = new AudioEngine(DEFAULT_SETTINGS.engine);
     return { engine, inputs: PAD_KEYS.map(() => engine.createInput()) };
   });
   const [volume, setVolume] = useState(1);
+
+  const form = useSettingsForm();
+  const engineConfig = useValidSection(form, "engine");
+  const goniometerConfig = useValidSection(form, "goniometer");
+  const vuConfig = useValidSection(form, "vu");
+  useEffect(() => engine.configure(engineConfig), [engine, engineConfig]);
 
   useEffect(() => {
     engine.resume();
@@ -59,22 +71,25 @@ export const SandboxClient: FC = () => {
           Press <kbd>Esc</kbd> to stop everything
         </p>
 
-        <label className="flex items-center gap-3">
-          Volume
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.01}
-            value={volume}
-            onChange={changeVolume}
-          />
-        </label>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-3">
+            Volume
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={volume}
+              onChange={changeVolume}
+            />
+          </label>
+          <SettingsSheet form={form} />
+        </div>
         <div className="flex items-center justify-evenly gap-6">
-          <Goniometer className="w-1/2 max-w-md" />
+          <Goniometer config={goniometerConfig} className="w-1/2 max-w-md" />
           <div className="flex flex-col gap-3 w-1/2 max-w-md">
-            <VUMeter channel="left" referenceDbfs={-8} />
-            <VUMeter channel="right" referenceDbfs={-8} />
+            <VUMeter channel="left" config={vuConfig} />
+            <VUMeter channel="right" config={vuConfig} />
           </div>
         </div>
       </main>

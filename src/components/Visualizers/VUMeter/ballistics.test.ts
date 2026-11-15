@@ -1,17 +1,22 @@
 import { describe, expect, test } from "vitest";
 
+import { dbToGain } from "@/lib/audio/db";
+
 import {
   advanceNeedle,
   createNeedle,
-  MAX_POSITION,
+  NeedleConfig,
   positionToVu,
 } from "./ballistics";
+import { DEFAULT_VU_METER_CONFIG } from "./config";
 
 const SAMPLE_RATE = 48000;
 const BUFFER_SIZE = 2048;
 const TONE_HZ = 1000;
 
-const amplitudeOf = (dbfs: number) => 10 ** (dbfs / 20);
+const amplitudeOf = dbToGain;
+
+const CONFIG: NeedleConfig = { ...DEFAULT_VU_METER_CONFIG, referenceDbfs: -18 };
 
 /**
  * Feeds a sine to a needle the way the engine does: once per display frame,
@@ -24,7 +29,12 @@ const play = (
     amplitude = amplitudeOf(-18),
     durationMs = 1000,
     frameRate = 60,
-    referenceDbfs = -18,
+    config = CONFIG,
+  }: {
+    amplitude?: number;
+    durationMs?: number;
+    frameRate?: number;
+    config?: NeedleConfig;
   } = {},
 ) => {
   const buffer = new Float32Array(BUFFER_SIZE);
@@ -42,7 +52,7 @@ const play = (
           : amplitude *
             Math.sin((2 * Math.PI * TONE_HZ * sample) / SAMPLE_RATE);
     }
-    const position = advanceNeedle(needle, buffer, fresh, dtMs, referenceDbfs);
+    const position = advanceNeedle(needle, buffer, fresh, dtMs, config);
     trace.push({ timeMs: frame * dtMs, position });
   }
   return { needle, trace, last: trace[trace.length - 1].position };
@@ -68,7 +78,7 @@ describe("VU needle", () => {
 
     const hotReference = play(createNeedle(), {
       amplitude: amplitudeOf(-10),
-      referenceDbfs: -10,
+      config: { ...CONFIG, referenceDbfs: -10 },
       durationMs: 2000,
     });
     expect(positionToVu(hotReference.last)).toBeCloseTo(0, 1);
@@ -79,6 +89,16 @@ describe("VU needle", () => {
     const rise = firstTimeMs(trace, (position) => position >= 0.99);
     expect(rise).toBeGreaterThan(270);
     expect(rise).toBeLessThan(330);
+  });
+
+  test("settles in the configured time, whatever the damping", () => {
+    for (const damping of [0.3, 0.81, 1, 1.8]) {
+      const config = { ...CONFIG, damping, settleMs: 150 };
+      const { trace } = play(createNeedle(), { frameRate: 1000, config });
+      const rise = firstTimeMs(trace, (position) => position >= 0.99);
+      expect(rise, `damping ${damping}`).toBeGreaterThan(140);
+      expect(rise, `damping ${damping}`).toBeLessThan(160);
+    }
   });
 
   test("overshoots by 1 to 1.5%", () => {
@@ -108,7 +128,7 @@ describe("VU needle", () => {
   test("stops at the end of its travel and recovers", () => {
     const needle = createNeedle();
     const pinned = play(needle, { amplitude: 1 });
-    expect(pinned.last).toBe(MAX_POSITION);
+    expect(pinned.last).toBe(CONFIG.maxPosition);
     const released = play(needle, { amplitude: 0 });
     expect(released.last).toBeCloseTo(0, 3);
   });

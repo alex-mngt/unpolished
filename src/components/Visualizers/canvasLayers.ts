@@ -18,11 +18,17 @@ interface CanvasLayersOptions {
   onIdle?: () => void;
 }
 
+export interface CanvasLayers {
+  /** Runs `onLayout` again at the current size, e.g. when a static layer's inputs change. */
+  relayout: () => void;
+  unmount: () => void;
+}
+
 /**
  * The plumbing every canvas visualizer needs: keeps the canvases sized to
  * their container and the display's pixel ratio, and subscribes to the engine
  * only while the container is on screen. Call it from an effect and return
- * its result as the cleanup.
+ * `unmount` as the cleanup.
  */
 export const mountCanvasLayers = ({
   engine,
@@ -31,7 +37,7 @@ export const mountCanvasLayers = ({
   onLayout,
   onFrame,
   onIdle,
-}: CanvasLayersOptions): (() => void) => {
+}: CanvasLayersOptions): CanvasLayers => {
   const layout = () => {
     const ratio = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
     const width = container.clientWidth;
@@ -72,11 +78,14 @@ export const mountCanvasLayers = ({
   );
   intersectionObserver.observe(container);
 
-  return () => {
-    subscription.unsubscribe();
-    intersectionObserver.disconnect();
-    resizeObserver.disconnect();
-    scheme.removeEventListener("change", layout);
-    ratioQuery.removeEventListener("change", onRatioChange);
+  return {
+    relayout: layout,
+    unmount: () => {
+      subscription.unsubscribe();
+      intersectionObserver.disconnect();
+      resizeObserver.disconnect();
+      scheme.removeEventListener("change", layout);
+      ratioQuery.removeEventListener("change", onRatioChange);
+    },
   };
 };

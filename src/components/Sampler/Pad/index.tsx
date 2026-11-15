@@ -1,23 +1,12 @@
 "use client";
 
-import { Field, FieldLabel } from "@/components/shadcn/field";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/shadcn/select";
-import { Slider } from "@/components/shadcn/slider";
-import { AudioInput, InputMode } from "@/lib/audio/engine";
+import { AudioInput } from "@/lib/audio/engine";
 import { Sample } from "@/samples";
-import { useForm } from "@tanstack/react-form";
-import { ChangeEvent, FC, useEffect, useId, useRef, useState } from "react";
+import { cn } from "cn";
+import { ChangeEvent, FC, useEffect, useRef, useState } from "react";
 
-const MODES: { value: InputMode; label: string }[] = [
-  { value: "mono", label: "Mono" },
-  { value: "poly", label: "Poly" },
-];
+import { PadSettings } from "./components/PadSettings";
+import { usePadForm } from "./form";
 
 interface PadProps {
   input: AudioInput;
@@ -31,15 +20,7 @@ export const Pad: FC<PadProps> = ({ input, shortcut, sample }) => {
   const [loading, setLoading] = useState(sample !== undefined);
   const [error, setError] = useState<string | null>(null);
   const requests = useRef(0);
-  const id = useId();
-
-  // Live controls: every change goes straight to the engine, nothing to submit.
-  const form = useForm({
-    defaultValues: {
-      gain: 1,
-      mode: "mono" as InputMode,
-    },
-  });
+  const form = usePadForm();
 
   useEffect(() => {
     if (!sample) return;
@@ -60,7 +41,7 @@ export const Pad: FC<PadProps> = ({ input, shortcut, sample }) => {
         setError(null);
       } catch {
         if (stale()) return;
-        setError(`Could not load ${sample.label}`);
+        setError("Could not load");
       }
       setLoading(false);
     };
@@ -84,106 +65,30 @@ export const Pad: FC<PadProps> = ({ input, shortcut, sample }) => {
       setError(null);
     } catch {
       if (request !== requests.current) return;
-      setError(`Could not decode ${file.name}`);
+      setError("Could not decode");
     }
   };
 
   const key = shortcut.toUpperCase();
-  const gainLabelId = `${id}-gain-label`;
-  const modeId = `${id}-mode`;
 
   return (
-    <fieldset className="flex flex-col gap-3 min-w-0 border border-foreground rounded-xs p-3">
-      <legend className="px-1">
-        Pad <kbd>{key}</kbd>
-      </legend>
-      <input
-        type="file"
-        accept="audio/*"
-        aria-label={`Audio file for pad ${key}`}
-        onChange={selectFile}
-        className="w-full"
+    <div className="relative flex flex-col gap-1 min-w-0 border border-foreground rounded-xs p-3">
+      <PadSettings
+        input={input}
+        form={form}
+        shortcut={key}
+        onSelectFile={selectFile}
+        className="absolute top-1 right-1"
       />
-      <p>
-        {fileName ? (
-          <>
-            {fileName}: press <kbd>{key}</kbd> to play
-          </>
-        ) : loading ? (
-          "Loading…"
-        ) : (
-          "No sample loaded"
-        )}
+      <kbd className="text-4xl font-black uppercase leading-none">{key}</kbd>
+      <p className={cn("truncate", !fileName && "text-muted-foreground")}>
+        {fileName ?? (loading ? "Loading…" : "No sample")}
       </p>
       {error && (
         <p role="alert" className="text-(--danger)">
           {error}
         </p>
       )}
-      <form
-        onSubmit={(event) => event.preventDefault()}
-        className="flex flex-wrap items-center gap-3"
-      >
-        <form.Field
-          name="gain"
-          listeners={{ onChange: ({ value }) => input.setGain(value) }}
-        >
-          {(field) => (
-            <Field orientation="horizontal" className="flex-1 min-w-40">
-              <FieldLabel id={gainLabelId} className="flex-none!">
-                Gain
-              </FieldLabel>
-              <Slider
-                aria-labelledby={gainLabelId}
-                min={0}
-                max={1}
-                step={0.01}
-                value={[field.state.value]}
-                // The wrapper's types lose the single-thumb shape.
-                onValueChange={(value) =>
-                  field.handleChange(Array.isArray(value) ? value[0] : value)
-                }
-                className="flex-1 min-w-0"
-              />
-            </Field>
-          )}
-        </form.Field>
-        <form.Field
-          name="mode"
-          listeners={{ onChange: ({ value }) => input.setMode(value) }}
-        >
-          {(field) => (
-            <Field orientation="horizontal" className="w-auto">
-              <FieldLabel htmlFor={modeId} className="flex-none!">
-                Mode
-              </FieldLabel>
-              <Select
-                name={field.name}
-                items={MODES}
-                value={field.state.value}
-                onValueChange={(value) => {
-                  if (value) field.handleChange(value);
-                }}
-              >
-                <SelectTrigger id={modeId} className="min-w-[120px]">
-                  <SelectValue placeholder="Select" />
-                </SelectTrigger>
-                {/* A focused trigger swallows pad shortcuts, so a pointer pick
-                    lets go of it; keyboard users keep their place. */}
-                <SelectContent
-                  finalFocus={(closeType) => closeType === "keyboard"}
-                >
-                  {MODES.map(({ value, label }) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-          )}
-        </form.Field>
-      </form>
-    </fieldset>
+    </div>
   );
 };

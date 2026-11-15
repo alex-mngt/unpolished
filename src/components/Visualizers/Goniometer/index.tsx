@@ -6,17 +6,23 @@ import { FC, useEffect, useRef } from "react";
 import { useAudioEngine } from "@/lib/audio/context";
 
 import { mountCanvasLayers } from "../canvasLayers";
+import type { GoniometerConfig } from "./config";
 import { drawGrid, drawTrace } from "./draw";
 
 interface GoniometerProps {
+  config: GoniometerConfig;
   className?: string;
 }
 
-export const Goniometer: FC<GoniometerProps> = ({ className }) => {
+export const Goniometer: FC<GoniometerProps> = ({ config, className }) => {
   const engine = useAudioEngine();
   const containerRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLCanvasElement>(null);
   const traceRef = useRef<HTMLCanvasElement>(null);
+  // Read per frame rather than closed over, so a config change does not
+  // remount the layers and wipe the trace.
+  const configRef = useRef(config);
+  const relayoutRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     const container = containerRef.current;
@@ -27,22 +33,32 @@ export const Goniometer: FC<GoniometerProps> = ({ className }) => {
     if (!container || !grid || !trace || !gridCtx || !traceCtx) return;
 
     let size = 0;
-
-    return mountCanvasLayers({
+    const layers = mountCanvasLayers({
       engine,
       container,
       canvases: [grid, trace],
       onLayout: (width) => {
         size = width;
         const color = getComputedStyle(container).color;
-        drawGrid(gridCtx, size, color);
+        drawGrid(gridCtx, size, color, configRef.current);
         traceCtx.fillStyle = color;
       },
       onFrame: (left, right, fresh, dtMs) =>
-        drawTrace(traceCtx, size, left, right, fresh, dtMs),
+        drawTrace(traceCtx, size, left, right, fresh, dtMs, configRef.current),
       onIdle: () => traceCtx.clearRect(0, 0, size, size),
     });
+    relayoutRef.current = layers.relayout;
+    return () => {
+      layers.unmount();
+      relayoutRef.current = () => {};
+    };
   }, [engine]);
+
+  useEffect(() => {
+    configRef.current = config;
+    // The grid is static: it is only redrawn when its inputs change.
+    relayoutRef.current();
+  }, [config]);
 
   return (
     <div
