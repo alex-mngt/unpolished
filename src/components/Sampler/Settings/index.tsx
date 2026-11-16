@@ -19,6 +19,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/shadcn/sheet";
+import { TooltipProvider } from "@/components/shadcn/tooltip";
 import { FieldHint, formatRange } from "@/components/UI/FieldHint";
 import { OptionSelect } from "@/components/UI/Select";
 import { SheetPanel } from "@/components/UI/Sheet";
@@ -221,28 +222,31 @@ export const SettingsSheet: FC<SettingsSheetProps> = ({ form, className }) => (
           fixed.
         </SheetDescription>
       </SheetHeader>
-      <form
-        onSubmit={(event) => event.preventDefault()}
-        className="flex flex-col gap-6 px-4"
-      >
-        {GROUPS.map(({ legend, fields }) => (
-          <FieldSet key={legend}>
-            <FieldLegend>{legend}</FieldLegend>
+      {/* One provider for every field hint in the sheet. */}
+      <TooltipProvider delay={300}>
+        <form
+          onSubmit={(event) => event.preventDefault()}
+          className="flex flex-col gap-6 px-4"
+        >
+          {GROUPS.map(({ legend, fields }) => (
+            <FieldSet key={legend}>
+              <FieldLegend>{legend}</FieldLegend>
+              <FieldGroup>
+                {fields.map((name) => (
+                  <NumberField key={name} form={form} name={name} />
+                ))}
+              </FieldGroup>
+            </FieldSet>
+          ))}
+          <FieldSet>
+            <FieldLegend>Analysis</FieldLegend>
             <FieldGroup>
-              {fields.map((name) => (
-                <NumberField key={name} form={form} name={name} />
-              ))}
+              <FftSizeField form={form} />
+              <NumberField form={form} name="engine.tailMs" />
             </FieldGroup>
           </FieldSet>
-        ))}
-        <FieldSet>
-          <FieldLegend>Analysis</FieldLegend>
-          <FieldGroup>
-            <FftSizeField form={form} />
-            <NumberField form={form} name="engine.tailMs" />
-          </FieldGroup>
-        </FieldSet>
-      </form>
+        </form>
+      </TooltipProvider>
       <SheetFooter>
         <Button type="button" variant="outline" onClick={() => form.reset()}>
           Reset to defaults

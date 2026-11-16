@@ -3,7 +3,6 @@
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from "@/components/shadcn/tooltip";
 import { Info } from "lucide-react";
@@ -24,6 +23,9 @@ interface FieldHintProps {
  * Info icon that explains a form control. Sighted users get a tooltip on
  * hover or focus; the text also sits hidden in the DOM under `id`, so the
  * control it describes can point at it with `aria-describedby`.
+ *
+ * Wrap the hints of one form in a single `TooltipProvider`: it sets their
+ * delay, and once one is open its neighbours open at once.
  */
 export const FieldHint: FC<FieldHintProps> = ({
   id,
@@ -32,25 +34,23 @@ export const FieldHint: FC<FieldHintProps> = ({
   range,
 }) => (
   <>
-    <TooltipProvider delay={300}>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <button
-              type="button"
-              aria-label={`About ${title}`}
-              className="inline-flex items-center rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
-            />
-          }
-        >
-          <Info className="size-3.5" aria-hidden />
-        </TooltipTrigger>
-        <TooltipContent side="left" className="flex-col items-start gap-1">
-          <p>{description}</p>
-          {range && <p className="text-background/70">{range}</p>}
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <button
+            type="button"
+            aria-label={`About ${title}`}
+            className="inline-flex items-center rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+          />
+        }
+      >
+        <Info className="size-3.5" aria-hidden />
+      </TooltipTrigger>
+      <TooltipContent side="left" className="flex-col items-start gap-1">
+        <p>{description}</p>
+        {range && <p className="text-background/70">{range}</p>}
+      </TooltipContent>
+    </Tooltip>
     <span id={id} className="sr-only">
       {description}
       {range && ` ${range}`}
