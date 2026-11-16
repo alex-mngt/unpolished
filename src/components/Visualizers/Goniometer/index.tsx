@@ -22,7 +22,7 @@ export const Goniometer: FC<GoniometerProps> = ({ config, className }) => {
   // Read per frame rather than closed over, so a config change does not
   // remount the layers and wipe the trace.
   const configRef = useRef(config);
-  const relayoutRef = useRef<() => void>(() => {});
+  const redrawRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     const container = containerRef.current;
@@ -47,17 +47,17 @@ export const Goniometer: FC<GoniometerProps> = ({ config, className }) => {
         drawTrace(traceCtx, size, left, right, fresh, dtMs, configRef.current),
       onIdle: () => traceCtx.clearRect(0, 0, size, size),
     });
-    relayoutRef.current = layers.relayout;
+    redrawRef.current = layers.redraw;
     return () => {
       layers.unmount();
-      relayoutRef.current = () => {};
+      redrawRef.current = () => {};
     };
   }, [engine]);
 
   useEffect(() => {
     configRef.current = config;
     // The grid is static: it is only redrawn when its inputs change.
-    relayoutRef.current();
+    redrawRef.current();
   }, [config]);
 
   return (

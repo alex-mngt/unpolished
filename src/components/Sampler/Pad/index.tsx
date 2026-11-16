@@ -22,6 +22,14 @@ export const Pad: FC<PadProps> = ({ input, shortcut, sample }) => {
   const requests = useRef(0);
   const form = usePadForm();
 
+  // The input outlives the pad: one that is reused still has the gain and
+  // mode of its previous pad, while the form starts over.
+  useEffect(() => {
+    const { gain, mode } = form.state.values;
+    input.setGain(gain);
+    input.setMode(mode);
+  }, [input, form]);
+
   useEffect(() => {
     if (!sample) return;
     // A file picked while this is still loading wins, like any later pick.

@@ -107,6 +107,7 @@ export class AudioEngine {
   private raf = 0;
   private lastFrame = 0;
   private tailUntil = 0;
+  private suspended = false;
 
   constructor(config: EngineConfig = DEFAULT_ENGINE_CONFIG) {
     this.config = config;
@@ -244,17 +245,22 @@ export class AudioEngine {
   }
 
   /**
-   * Silences the engine and stops the loop without tearing the graph down.
-   * The context is suspended rather than closed because effect cleanups also
-   * run when the engine survives (Fast Refresh, StrictMode).
+   * Fades every voice out and stops the loop, then suspends the context once
+   * the last voice has ended: suspended any sooner, a voice would freeze
+   * mid-sample and pick up where it left off on `resume`. The graph is kept
+   * rather than closed because effect cleanups also run when the page stays
+   * (Fast Refresh, StrictMode).
    */
   suspend() {
+    this.suspended = true;
     cancelAnimationFrame(this.raf);
     this.raf = 0;
-    void this.graph?.ctx.suspend();
+    this.stopAll();
+    if (!this.playing) void this.graph?.ctx.suspend();
   }
 
   resume() {
+    this.suspended = false;
     if (!this.playing) return;
     void this.graph?.ctx.resume();
     this.kick();
@@ -321,11 +327,13 @@ export class AudioEngine {
       this.kick();
     } else {
       this.tailUntil = performance.now() + this.config.tailMs;
+      if (this.suspended) void this.graph?.ctx.suspend();
     }
   }
 
   private kick() {
-    if (this.raf !== 0 || !this.playing || this.subscribers.size === 0) return;
+    if (this.suspended || this.raf !== 0) return;
+    if (!this.playing || this.subscribers.size === 0) return;
     this.lastFrame = performance.now();
     this.raf = requestAnimationFrame(this.tick);
   }

@@ -9,9 +9,9 @@ interface CanvasLayersOptions {
   canvases: HTMLCanvasElement[];
   /**
    * Called with the container size in CSS pixels whenever the canvases have
-   * been resized, and when the colour scheme changes. Resizing a canvas clears
-   * it, so static layers are redrawn here and only here. Every 2D context is
-   * already scaled so that 1 unit = 1 CSS pixel.
+   * been resized, when the colour scheme changes, and on `redraw`. Resizing a
+   * canvas clears it, so static layers are redrawn here and only here. Every
+   * 2D context is already scaled so that 1 unit = 1 CSS pixel.
    */
   onLayout: (width: number, height: number) => void;
   onFrame: FrameCallback;
@@ -19,8 +19,11 @@ interface CanvasLayersOptions {
 }
 
 export interface CanvasLayers {
-  /** Runs `onLayout` again at the current size, e.g. when a static layer's inputs change. */
-  relayout: () => void;
+  /**
+   * Runs `onLayout` again at the current size, e.g. when a static layer's
+   * inputs change. Nothing is resized, so the other layers keep their pixels.
+   */
+  redraw: () => void;
   unmount: () => void;
 }
 
@@ -38,10 +41,12 @@ export const mountCanvasLayers = ({
   onFrame,
   onIdle,
 }: CanvasLayersOptions): CanvasLayers => {
+  let width = 0;
+  let height = 0;
   const layout = () => {
     const ratio = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
-    const width = container.clientWidth;
-    const height = container.clientHeight;
+    width = container.clientWidth;
+    height = container.clientHeight;
     for (const canvas of canvases) {
       canvas.width = Math.round(width * ratio);
       canvas.height = Math.round(height * ratio);
@@ -79,7 +84,7 @@ export const mountCanvasLayers = ({
   intersectionObserver.observe(container);
 
   return {
-    relayout: layout,
+    redraw: () => onLayout(width, height),
     unmount: () => {
       subscription.unsubscribe();
       intersectionObserver.disconnect();

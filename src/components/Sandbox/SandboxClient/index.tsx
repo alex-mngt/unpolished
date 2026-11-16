@@ -8,20 +8,16 @@ import {
   useSettingsForm,
   useValidSection,
 } from "@/components/Sampler/Settings/form";
-import { DEFAULT_SETTINGS } from "@/components/Sampler/Settings/schema";
 import { Goniometer } from "@/components/Visualizers/Goniometer";
 import { VUMeter } from "@/components/Visualizers/VUMeter";
 import { AudioEngineContext } from "@/lib/audio/context";
-import { AudioEngine } from "@/lib/audio/engine";
 import { SAMPLES } from "@/samples";
 
+import { getSampler } from "./sampler";
 import { PAD_KEYS, shortcutAction } from "./shortcut";
 
 export const SandboxClient: FC = () => {
-  const [{ engine, inputs }] = useState(() => {
-    const engine = new AudioEngine(DEFAULT_SETTINGS.engine);
-    return { engine, inputs: PAD_KEYS.map(() => engine.createInput()) };
-  });
+  const { engine, inputs } = getSampler();
   const [volume, setVolume] = useState(1);
 
   const form = useSettingsForm();
@@ -29,6 +25,8 @@ export const SandboxClient: FC = () => {
   const goniometerConfig = useValidSection(form, "goniometer");
   const vuConfig = useValidSection(form, "vu");
   useEffect(() => engine.configure(engineConfig), [engine, engineConfig]);
+  // Also on mount: the engine still has the volume of the previous visit.
+  useEffect(() => engine.setVolume(volume), [engine, volume]);
 
   useEffect(() => {
     engine.resume();
@@ -47,9 +45,7 @@ export const SandboxClient: FC = () => {
   }, [engine, inputs]);
 
   const changeVolume = (event: ChangeEvent<HTMLInputElement>) => {
-    const next = Number(event.target.value);
-    setVolume(next);
-    engine.setVolume(next);
+    setVolume(Number(event.target.value));
   };
 
   return (

@@ -28,7 +28,7 @@ export const VUMeter: FC<VUMeterProps> = ({ channel, config, className }) => {
   // Read per frame rather than closed over, so a config change does not
   // remount the layers and snap the needle back to rest.
   const configRef = useRef(config);
-  const relayoutRef = useRef<() => void>(() => {});
+  const redrawRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     const container = containerRef.current;
@@ -76,17 +76,17 @@ export const VUMeter: FC<VUMeterProps> = ({ channel, config, className }) => {
         paint();
       },
     });
-    relayoutRef.current = layers.relayout;
+    redrawRef.current = layers.redraw;
     return () => {
       layers.unmount();
-      relayoutRef.current = () => {};
+      redrawRef.current = () => {};
     };
   }, [engine, channel]);
 
   useEffect(() => {
     configRef.current = config;
     // The face is static: it is only redrawn when its inputs change.
-    relayoutRef.current();
+    redrawRef.current();
   }, [config]);
 
   return (
