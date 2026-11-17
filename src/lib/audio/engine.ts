@@ -15,8 +15,11 @@ export interface AudioInput {
    * already sounding play the old sample out.
    */
   load: (data: ArrayBuffer) => Promise<void>;
-  /** Plays the sample from the top. Does nothing until a sample is loaded. */
-  trigger: () => void;
+  /**
+   * Plays the sample from the top, at `level` (0 to 1, full by default) of
+   * the input's gain. Does nothing until a sample is loaded.
+   */
+  trigger: (level?: number) => void;
   setGain: (level: number) => void;
   /** Takes effect on the next trigger: sounding voices are left alone. */
   setMode: (mode: InputMode) => void;
@@ -60,6 +63,8 @@ interface Graph {
 interface Voice {
   source: AudioBufferSourceNode;
   gain: GainNode;
+  /** What the voice was triggered at, and fades out from. */
+  level: number;
 }
 
 interface InputState {
@@ -202,7 +207,7 @@ export class AudioEngine {
         const buffer = await this.ensureGraph().ctx.decodeAudioData(data);
         if (request === input.loads && !input.disposed) input.buffer = buffer;
       },
-      trigger: () => this.trigger(input),
+      trigger: (level = 1) => this.trigger(input, level),
       setGain: (level) => {
         input.level = level;
         if (input.node) this.glide(input.node, level);
@@ -270,8 +275,11 @@ export class AudioEngine {
     return this.liveVoices > 0;
   }
 
-  /** Must be reached from a user gesture (browser autoplay policy). */
-  private trigger(input: InputState) {
+  /**
+   * Heard only once the page has seen a user gesture (browser autoplay
+   * policy): until then the context stays suspended and voices queue up.
+   */
+  private trigger(input: InputState, level: number) {
     if (!input.buffer || input.disposed) return;
     const { ctx, mix } = this.ensureGraph();
     if (!input.node) {
@@ -288,8 +296,9 @@ export class AudioEngine {
     const source = ctx.createBufferSource();
     source.buffer = input.buffer;
     const gain = ctx.createGain();
+    gain.gain.value = level;
     source.connect(gain).connect(input.node);
-    const voice: Voice = { source, gain };
+    const voice: Voice = { source, gain, level };
     source.onended = () => {
       const index = input.voices.indexOf(voice);
       if (index !== -1) input.voices.splice(index, 1);
@@ -313,10 +322,10 @@ export class AudioEngine {
   /** Fades a voice out; its `onended` then releases it. */
   private choke(input: InputState, voice: Voice) {
     input.voices.splice(input.voices.indexOf(voice), 1);
-    const { gain, source } = voice;
+    const { gain, source, level } = voice;
     const now = source.context.currentTime;
     const end = now + this.config.chokeFadeMs / 1000;
-    gain.gain.setValueAtTime(1, now);
+    gain.gain.setValueAtTime(level, now);
     gain.gain.linearRampToValueAtTime(0, end);
     source.stop(end);
   }

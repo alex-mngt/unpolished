@@ -2,6 +2,7 @@
 
 import { ChangeEvent, FC, useEffect, useState } from "react";
 
+import { MidiConnect } from "@/components/Sampler/MidiConnect";
 import { Pad } from "@/components/Sampler/Pad";
 import { SettingsSheet } from "@/components/Sampler/Settings";
 import {
@@ -11,13 +12,15 @@ import {
 import { Goniometer } from "@/components/Visualizers/Goniometer";
 import { VUMeter } from "@/components/Visualizers/VUMeter";
 import { AudioEngineContext } from "@/lib/audio/context";
+import { getMidi } from "@/lib/midi/browser";
 import { SAMPLES } from "@/samples";
 
+import { midiAction, MPD_PADS, velocityLevel } from "./midi";
 import { getSampler } from "./sampler";
 import { PAD_KEYS, shortcutAction } from "./shortcut";
 
 export const SandboxClient: FC = () => {
-  const { engine, inputs } = getSampler();
+  const { engine, inputs, pulses, hit } = getSampler();
   const [volume, setVolume] = useState(1);
 
   const form = useSettingsForm();
@@ -37,12 +40,23 @@ export const SandboxClient: FC = () => {
     // The engine's AudioContext starts running here, inside a user gesture.
     const onKeyDown = (event: KeyboardEvent) => {
       const action = shortcutAction(event);
-      if (action?.type === "trigger") inputs[action.pad]?.trigger();
+      if (action?.type === "trigger") hit(action.pad);
       else if (action?.type === "stop") engine.stopAll();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [engine, inputs]);
+  }, [engine, hit]);
+
+  // Unlike keys, MIDI pads are heard whatever has the focus, and with the
+  // tab in the background. Nothing arrives until the user grants access.
+  useEffect(
+    () =>
+      getMidi().onMessage((data) => {
+        const action = midiAction(data);
+        if (action) hit(action.pad, velocityLevel(action.velocity));
+      }),
+    [hit],
+  );
 
   const changeVolume = (event: ChangeEvent<HTMLInputElement>) => {
     setVolume(Number(event.target.value));
@@ -58,6 +72,8 @@ export const SandboxClient: FC = () => {
               key={PAD_KEYS[index]}
               input={input}
               shortcut={PAD_KEYS[index]}
+              midiPad={MPD_PADS[index].number}
+              pulse={pulses[index]}
               sample={SAMPLES[index]}
             />
           ))}
@@ -80,6 +96,7 @@ export const SandboxClient: FC = () => {
             />
           </label>
           <SettingsSheet form={form} />
+          <MidiConnect />
         </div>
         <div className="flex items-center justify-evenly gap-6">
           <Goniometer config={goniometerConfig} className="w-1/2 max-w-md" />
