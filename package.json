@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "check-types": "tsc --noEmit",
-    "test": "vitest"
+    "test": "vitest",
+    "optimize-samples": "node scripts/optimize-samples.mts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

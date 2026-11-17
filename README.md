@@ -20,6 +20,23 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Samples
+
+The sandbox plays FLAC copies of the samples: lossless, and less than half the size of the WAV originals.
+
+- `src/samples/source/` holds the WAV originals. Nothing rewrites them.
+- `src/samples/` holds the FLAC files made from them, along with `files.generated.ts` (the list the app imports) and `samples.lock.json` (what was converted, and with which settings). All three are generated and committed.
+
+After adding, replacing or removing a WAV in `src/samples/source/`, run:
+
+```bash
+pnpm optimize-samples
+```
+
+This needs [ffmpeg](https://ffmpeg.org) on your machine (`brew install ffmpeg` on macOS). Deploying does not: the FLAC files are committed.
+
+The script only converts what changed, and checks every FLAC it writes against its WAV: 16-bit and 24-bit sources come out bit for bit identical, deeper ones (32-bit integer or float) are rounded to 24 bits. `pnpm test` fails when the committed files no longer match the WAV originals, so a forgotten run does not go unnoticed. The pad labels listed in `src/samples/index.test.ts` are still updated by hand.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

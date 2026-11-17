@@ -1,0 +1,37 @@
+{
+  "encoder": "-c:a flac -compression_level 12 -max_prediction_order 12 -exact_rice_parameters 1 -lpc_type cholesky -lpc_passes 8 -map 0:a:0 -map_metadata -1 -bitexact",
+  "samples": {
+    "FX_Ah.wav": {
+      "source": "42c021f8947464cf6263247e507c450e89b1f9e18e459c360c45922c302ecf25",
+      "flac": "8b8f4051f8c7bb33d41077766a9c121b194983dbfdf7577dae842ff01189b822"
+    },
+    "FX_apollo_106bpm.wav": {
+      "source": "9eefb90e251504e1d355aea47c98b86a229b185c6c6d93b32abc65e94d52edee",
+      "flac": "18aac5d0da2c4ed37b0a36c9d3f8a9f629fdc0ff3f54481dcaea07a55dbb798f"
+    },
+    "FX_hum.wav": {
+      "source": "e4b0bb060d9e8de31f585ef661fc0749292d528480e2face886e0bf8d0ee3722",
+      "flac": "156ff1aa46aa99ef65ac87b84a2700549f852e5490213dd537c93685ee3e7b51"
+    },
+    "FX_like_120bpm.wav": {
+      "source": "4a9a990a47334444ea4bcf941f9a2dac04ec418efa9cf044179d0e2bf82130d7",
+      "flac": "f7a180b124eac1f2c38b830a394f08853eb4143ef002567ed471ba441ee161f2"
+    },
+    "FX_mask_140bpm.wav": {
+      "source": "2224ae588f6d5d270dce226d5d256d6b95013c7a2cf26aef46cf05f89882bafa",
+      "flac": "d53b27dca8d336c92f7eafbc60692bb775fc4ca9989e68807a7ed5dd251bea0c"
+    },
+    "FX_phone_116bpm.wav": {
+      "source": "dd78f6044321612c6fc0633e3d4e6c410c6fc4e4af8fd7b36cadaa726e68bfa7",
+      "flac": "7a9b4bca5991535e27d6a6485fd689a98d13169a46fd9d52b0399f0d9ff5ac38"
+    },
+    "FX_ring alarm_185bpm.wav": {
+      "source": "679ce639c97d5aa4e2b7c11df2a376262dd3d5f7fa209d9609c6d1edfdd5330e",
+      "flac": "8ea3e9f416191b0c5ea3855ffef2471a17fd0496ce91e6b7cd25193857adc847"
+    },
+    "FX_stut bass_120bpm.wav": {
+      "source": "b84139360b39ca9d4480eb97eef03abb7773d51a6559773c58d082d17bde179b",
+      "flac": "bf9aaa49b168c0daaa823fe2e4f943133c89163aff1cc7123770166f9a9fa7c8"
+    }
+  }
+}
