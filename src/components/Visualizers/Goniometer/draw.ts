@@ -2,11 +2,10 @@
 // so it can move to an OffscreenCanvas worker unchanged.
 // Both functions expect the context to be scaled so that 1 unit = 1 CSS pixel.
 
+import { type Context2D, FONT_FAMILY } from "../canvas2d";
 import type { GoniometerConfig } from "./config";
 
-type Context2D = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
-
-export const LABEL_FONT = "10px ui-monospace, Menlo, monospace";
+export const LABEL_FONT = `10px ${FONT_FAMILY}`;
 
 // Distance in pixels from the centre to a diamond vertex (L = R = 1).
 const halfExtent = (size: number, padding: number) => size / 2 - padding;

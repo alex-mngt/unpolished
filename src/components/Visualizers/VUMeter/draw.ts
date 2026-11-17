@@ -2,9 +2,8 @@
 // so it can move to an OffscreenCanvas worker unchanged.
 // Both functions expect the context to be scaled so that 1 unit = 1 CSS pixel.
 
+import { type Context2D, FONT_FAMILY } from "../canvas2d";
 import { vuToPosition } from "./ballistics";
-
-type Context2D = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
 export interface FaceConfig {
   /** Angle in degrees between the vertical and either end of the scale. */
@@ -13,7 +12,6 @@ export interface FaceConfig {
 
 /** Marks on the scale, in VU. The ones above 0 are drawn in red. */
 export const MARKS = [-20, -10, -7, -5, -3, -2, -1, 0, 1, 2, 3];
-export const FONT_FAMILY = "ui-monospace, Menlo, monospace";
 
 const SCALE_END = vuToPosition(MARKS[MARKS.length - 1]);
 
