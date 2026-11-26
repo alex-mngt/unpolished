@@ -1,37 +1,46 @@
 import { FC } from "react";
-import { BackgroundVideo } from "@/components/BackgroundVideo";
-import { Button } from "@/components/UI/Button";
+
+import cover from "./assets/images/concrete-cover-4k-v3.png";
+import Image from "next/image";
+import { DownloadSamplePackButton } from "@/components/pages/Home/DownloadSamplePackButton";
+import { Star } from "@/components/Misc/Star";
+import { QuatreVinghtDixNeufStudLogo } from "@/components/Misc/QuatreVinghtDixNeufStudLogo";
 import Link from "next/link";
 
 const Home: FC = () => {
   return (
-    <main className="flex-1 flex flex-col lg:flex-row items-center container mx-auto gap-6 px-4">
-      <BackgroundVideo
-        className="md:w-2/3 lg:w-1/2 aspect-square"
-        src="https://stream.mux.com/Oth4kOng9AWTCfongg3AoF5BL4kGMCsAMrw3kwqhKtI.m3u8"
-        crossOrigin="anonymous"
-      />
-      <div className="flex-1 flex flex-col md:max-w-xl lg:max-w-none">
-        <h1 className="text-5xl lg:text-6xl tracking-widest uppercase font-drowner mb-4">
-          unpolished
-        </h1>
-        <p className="mb-4">
-          Sed at leo id orci fringilla aliquet. Nullam sit amet condimentum
-          odio, consequat sodales elit. Aliquam ut augue porta, euismod mauris
-          scelerisque, consectetur ex. Maecenas ut sodales purus.{" "}
-          <Link href="/sandbox">Curabitur</Link> non auctor elit. In hac
-          habitasse platea dictumst. Nulla hendrerit lectus sed fringilla
-          consectetur. Proin maximus blandit finibus.
-        </p>
-        <h2 className="text-xl font-semibold mb-2">sample pack content</h2>
-        <ul className="ml-1 mb-5">
-          <li>2 bass</li>
-          <li>3 hats</li>
-          <li>5 FX</li>
-        </ul>
-        <Button className="lg:w-min">download</Button>
-      </div>
-    </main>
+    <>
+      <Star className="fixed top-6 left-6 size-6" />
+      <Star className="fixed bottom-6 left-6 size-6" />
+      <Star className="fixed top-6 right-6 size-6" />
+      <main className="flex-1 flex flex-col items-center justify-center container mx-auto gap-6 px-4 text-white">
+        <div className="fixed top-8 text-center font-semibold">
+          <p>[private download page]</p>
+          <p>*don't share it</p>
+        </div>
+        <div className="flex flex-col items-center">
+          <Image
+            className="z-10 drop-shadow-xl"
+            src={cover}
+            style={{ height: 280, width: "auto" }}
+            alt="unpolished sample pack cover"
+          />
+          <h1 className="text-6xl uppercase font-herbus font-bold -mt-9 ">
+            unpolished
+          </h1>
+          <p className="font-bold">vol.1</p>
+        </div>
+        <DownloadSamplePackButton className="fixed bottom-8 mx-auto lg:w-min border-0">
+          download
+        </DownloadSamplePackButton>
+        <div className="fixed bottom-6 right-6 flex items-center">
+          <p className="mr-2 font-semibold">by</p>
+          <Link target="_blank" href="https://99stud.com">
+            <QuatreVinghtDixNeufStudLogo className="size-6" />
+          </Link>
+        </div>
+      </main>
+    </>
   );
 };
 

@@ -43,9 +43,8 @@
 @theme inline {
     --color-background: var(--background);
     --color-foreground: var(--foreground);
-    --font-sans: var(--font-geist-sans);
-    --font-mono: var(--font-geist-mono);
-    --font-drowner: var(--font-drowner-local);
+    --font-sans: var(--font-inter);
+    --font-herbus: var(--font-herbus-bold-local);
     --font-heading: var(--font-sans);
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
@@ -85,10 +84,6 @@
     --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-body {
-    font-family: Helvetica, Arial, sans-serif;
-}
-
 .dark {
     color-scheme: dark;
     --danger: #f87171;
@@ -126,13 +121,13 @@ body {
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
+    * {
+        @apply border-border outline-ring/50;
     }
-  body {
-    @apply bg-background text-foreground;
+    body {
+        @apply bg-background text-foreground;
     }
-  html {
-    @apply font-sans;
+    html {
+        @apply font-sans;
     }
 }

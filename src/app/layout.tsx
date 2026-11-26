@@ -1,18 +1,8 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Figtree } from "next/font/google";
+import { Inter } from "next/font/google";
 import localFont from "next/font/local";
 
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "unpolished - 99stud sample pack",
@@ -28,17 +18,22 @@ export const metadata: Metadata = {
     },
   },
 };
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin"],
+});
 
-const drowner = localFont({
-  src: "./fonts/drowner.woff2",
-  variable: "--font-drowner-local",
+const herbusBold = localFont({
+  src: "./assets/fonts/Herbus-Bold.woff2",
+  weight: "700",
+  variable: "--font-herbus-bold-local",
 });
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${drowner.variable} dark h-full antialiased`}
+      className={`${inter.variable} ${herbusBold.variable} dark h-full antialiased`}
     >
       <body className="min-h-full flex flex-col cursor-crosshair">
         {children}
