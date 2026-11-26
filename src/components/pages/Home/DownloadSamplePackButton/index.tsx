@@ -1,6 +1,7 @@
 import { cn } from "cn";
 import { ComponentProps, FC } from "react";
 import { Button as ShadcnButton } from "@/components/shadcn/button";
+import { ButtonStars } from "@/components/Misc/ButtonStars";
 
 type ButtonProps = Omit<
   ComponentProps<typeof ShadcnButton>,
@@ -9,6 +10,7 @@ type ButtonProps = Omit<
 
 export const DownloadSamplePackButton: FC<ButtonProps> = ({
   className,
+  children,
   ...props
 }) => {
   return (
@@ -16,10 +18,13 @@ export const DownloadSamplePackButton: FC<ButtonProps> = ({
       variant={null}
       size={null}
       className={cn(
-        "font-black text-xl uppercase py-2 px-3 transition-colors",
+        "relative h-14 lg:h-16 aspect-912/270 font-black text-lg lg:text-xl uppercase transition-colors",
         className,
       )}
       {...props}
-    />
+    >
+      <ButtonStars className="absolute inset-0 size-full" />
+      {children}
+    </ShadcnButton>
   );
 };

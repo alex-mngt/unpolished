@@ -5,6 +5,7 @@ log("NODE_ENV:", process.env.NODE_ENV);
 log("node", process.version);
 
 const nextConfig: NextConfig = {
+  allowedDevOrigins: ["192.168.1.29"],
   /* config options here */
   reactCompiler: true,
   async headers() {

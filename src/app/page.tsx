@@ -21,22 +21,22 @@ const Home: FC = () => {
         <div className="flex flex-col items-center">
           <Image
             preload
-            className="z-10 h-70 w-auto drop-shadow-xl"
+            className="z-10 h-60 lg:h-70 w-auto drop-shadow-xl"
             src={cover}
             alt="unpolished sample pack cover"
           />
-          <h1 className="text-6xl uppercase font-herbus font-bold -mt-9 transition-[filter,opacity] duration-1000 ease-out starting:blur-sm starting:opacity-0 motion-reduce:transition-none">
+          <h1 className="text-5xl lg:text-6xl uppercase font-herbus font-bold -mt-6 lg:-mt-9 transition-[filter,opacity] duration-1000 ease-out starting:blur-sm starting:opacity-0 motion-reduce:transition-none">
             unpolished
           </h1>
-          <p className="font-bold transition-[opacity,translate] duration-700 delay-700 ease-out starting:opacity-0 starting:-translate-y-1 motion-reduce:transition-none">
+          <p className="font-bold transition-[opacity,translate] duration-700 delay-300 ease-out starting:opacity-0 starting:-translate-y-1 motion-reduce:transition-none">
             vol.1
           </p>
         </div>
-        <DownloadSamplePackButton className="fixed bottom-8 mx-auto lg:w-min border-0">
+        <DownloadSamplePackButton className="fixed bottom-24 lg:bottom-8 mx-auto border-0">
           download
         </DownloadSamplePackButton>
         <div className="fixed bottom-6 right-6 flex items-center">
-          <p className="mr-2 font-semibold">by</p>
+          <p className="mr-1.5 font-semibold text-xs">by</p>
           <Link target="_blank" href="https://99stud.com">
             <QuatreVinghtDixNeufStudLogo className="size-6" />
           </Link>
