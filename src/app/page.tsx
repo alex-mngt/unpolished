@@ -9,6 +9,7 @@ import { QuatreVinghtDixNeufStudLogo } from "@/components/Misc/QuatreVinghtDixNe
 import { readSiteConfig } from "@/lib/site/config";
 import { OPEN_GRAPH } from "@/lib/site/metadata";
 import Link from "next/link";
+import { cn } from "cn";
 
 /** Served from `public/`. */
 const SAMPLE_PACK_HREF = "/UNPOLISHED_vol.1_(V1).zip";
@@ -26,13 +27,16 @@ const Home: FC = () => {
       <Star className="fixed top-6 left-6 size-6 text-white" />
       <Star className="fixed bottom-6 left-6 size-6 text-white" />
       <Star className="fixed top-6 right-6 size-6 text-white" />
-      <main className="flex-1 flex flex-col items-center justify-center container mx-auto gap-6 px-4 text-white">
-        {!indexable && (
-          <div className="fixed top-8 text-center font-semibold">
-            <p>[private download page]</p>
-            <p>*don't share it</p>
-          </div>
-        )}
+      <main className="flex-1 flex flex-col items-center justify-evenly container mx-auto gap-6 px-4 text-white">
+        <div
+          className={cn(
+            "text-center font-semibold text-sm",
+            indexable && "opacity-0",
+          )}
+        >
+          <p>[private download page]</p>
+          <p>*don't share it</p>
+        </div>
         <div className="flex flex-col items-center">
           <Image
             preload
@@ -50,10 +54,7 @@ const Home: FC = () => {
             vol.1
           </p>
         </div>
-        <DownloadSamplePackButton
-          href={SAMPLE_PACK_HREF}
-          className="fixed bottom-24 lg:bottom-8 mx-auto border-0"
-        >
+        <DownloadSamplePackButton href={SAMPLE_PACK_HREF} className="mx-auto">
           download
         </DownloadSamplePackButton>
       </main>
