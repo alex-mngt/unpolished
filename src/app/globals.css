@@ -129,3 +129,7 @@
         @apply bg-background text-foreground;
     }
 }
+
+@utility font-helevtica {
+    font-family: Helvetica, Arial, sans-serif;
+}

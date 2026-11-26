@@ -64,7 +64,7 @@ export const SandboxClient: FC = () => {
 
   return (
     <AudioEngineContext value={engine}>
-      <main className="flex flex-col gap-6 p-6">
+      <main className="flex flex-col gap-6 p-6 font-helevtica">
         {/* Four columns, so that the pads sit like their keys do. */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {inputs.map((input, index) => (
