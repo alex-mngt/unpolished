@@ -37,6 +37,15 @@ This needs [ffmpeg](https://ffmpeg.org) on your machine (`brew install ffmpeg` o
 
 The script only converts what changed, and checks every FLAC it writes against its WAV: 16-bit and 24-bit sources come out bit for bit identical, deeper ones (32-bit integer or float) are rounded to 24 bits. `pnpm test` fails when the committed files no longer match the WAV originals, so a forgotten run does not go unnoticed. The pad labels listed in `src/samples/index.test.ts` are still updated by hand.
 
+## Search engine indexing
+
+The site is private by default: every page and file is served `noindex`, and the landing page shows its "private download page" notice. Two environment variables, documented in `.env.example`, change that:
+
+- `ALLOW_INDEXING=true` makes the landing page indexable, hides the notice, and lists the page in `sitemap.xml`. `/sandbox` and the sample pack zip stay `noindex` either way.
+- `SITE_URL` is the public origin of the site. The build fails when indexing is on without it.
+
+Both are read at build time, so changing them needs a new build.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

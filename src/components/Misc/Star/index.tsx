@@ -8,12 +8,11 @@ interface StarProps {
 export const Star: FC<StarProps> = ({ className }) => {
   return (
     <svg
-      className={cn("fill-white", className)}
-      data-name="Calque 1"
+      className={cn("fill-current", className)}
       xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 916.75 871.88"
+      aria-hidden
     >
-      <defs></defs>
       <polygon points="458.37 0 566.58 333.03 916.75 333.03 633.46 538.85 741.67 871.88 458.37 666.06 175.08 871.88 283.29 538.85 0 333.03 350.17 333.03 458.37 0" />
     </svg>
   );

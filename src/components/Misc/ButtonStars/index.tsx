@@ -8,7 +8,7 @@ interface ButtonStarsProps {
 export const ButtonStars: FC<ButtonStarsProps> = ({ className }) => {
   return (
     <svg
-      className={cn("fill-white", className)}
+      className={cn("fill-current", className)}
       xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 912.31 270.09"
       aria-hidden

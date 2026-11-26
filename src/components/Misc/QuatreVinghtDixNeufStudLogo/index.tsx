@@ -10,11 +10,10 @@ export const QuatreVinghtDixNeufStudLogo: FC<
 > = ({ className }) => {
   return (
     <svg
-      className={cn("fill-white", className)}
-      id="Calque_1"
-      data-name="Calque 1"
+      className={cn("fill-current", className)}
       xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 934.13 831.46"
+      aria-hidden
     >
       <path d="M188.4,204.2l22.9,25.55-31.36,31.33,23.34,29.87-25.35,25.16-25.03-29.27-27.2,23.7-22.15-25.27,28.23-26.85-25.1-31.28,23.75-19.83,27.18,30.19,30.79-33.27Z" />
       <path d="M250.73,291.05l27.06-25.34-24.2-36.15,25.21-20.73,23.91,33.55,40.89-35.05,21.85,28.56-43.01,34.19,22.99,32.24-28.98,21.16-19.77-29.55-26.63,24.61-19.31-27.49Z" />
