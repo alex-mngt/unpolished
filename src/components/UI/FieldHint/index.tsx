@@ -40,7 +40,7 @@ export const FieldHint: FC<FieldHintProps> = ({
           <button
             type="button"
             aria-label={`About ${title}`}
-            className="inline-flex items-center rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+            className="inline-flex items-center rounded-sm text-muted-foreground outline-hidden hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
           />
         }
       >

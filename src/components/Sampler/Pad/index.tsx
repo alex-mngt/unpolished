@@ -138,7 +138,7 @@ export const Pad: FC<PadProps> = ({
         {fileName ?? (loading ? "Loading…" : "No sample")}
       </p>
       {error && (
-        <p role="alert" className="text-(--danger)">
+        <p role="alert" className="text-danger">
           {error}
         </p>
       )}

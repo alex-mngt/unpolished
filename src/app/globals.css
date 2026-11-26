@@ -43,6 +43,7 @@
 @theme inline {
     --color-background: var(--background);
     --color-foreground: var(--foreground);
+    --color-danger: var(--danger);
     --font-sans: var(--font-inter);
     --font-herbus: var(--font-herbus-bold-local);
     --font-heading: var(--font-sans);
@@ -126,8 +127,5 @@
     }
     body {
         @apply bg-background text-foreground;
-    }
-    html {
-        @apply font-sans;
     }
 }

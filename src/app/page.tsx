@@ -20,9 +20,8 @@ const Home: FC = () => {
         </div>
         <div className="flex flex-col items-center">
           <Image
-            className="z-10 drop-shadow-xl"
+            className="z-10 h-70 w-auto drop-shadow-xl"
             src={cover}
-            style={{ height: 280, width: "auto" }}
             alt="unpolished sample pack cover"
           />
           <h1 className="text-6xl uppercase font-herbus font-bold -mt-9 ">
