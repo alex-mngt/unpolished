@@ -1,13 +1,22 @@
 "use client";
 
 import { AudioInput } from "@/lib/audio/engine";
+import { audioLocked } from "@/lib/audio/lock";
 import { Sample } from "@/samples";
 import { cn } from "cn";
-import { ChangeEvent, FC, useEffect, useRef, useState } from "react";
+import {
+  ChangeEvent,
+  FC,
+  PointerEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { PadSettings } from "./components/PadSettings";
 import { usePadForm } from "./form";
 import { Pulse } from "./pulse";
+import { touchHits, whenLifted } from "./touch";
 
 interface PadProps {
   input: AudioInput;
@@ -18,6 +27,8 @@ interface PadProps {
   pulse: Pulse;
   /** Loaded when the pad mounts; the pad starts empty without one. */
   sample?: Sample;
+  /** Plays the pad: called when a finger or a pen lands on it. */
+  onHit: () => void;
 }
 
 // Thickens the 1px border to 4px, inset so that nothing around the pad moves,
@@ -34,6 +45,7 @@ export const Pad: FC<PadProps> = ({
   midiPad,
   pulse,
   sample,
+  onHit,
 }) => {
   const [fileName, setFileName] = useState<string | null>(null);
   const [loading, setLoading] = useState(sample !== undefined);
@@ -114,12 +126,25 @@ export const Pad: FC<PadProps> = ({
     }
   };
 
+  // On the way down rather than on click, for timing; each finger is its own
+  // pointer, so several pads can be hit at once.
+  const press = (event: PointerEvent<HTMLDivElement>) => {
+    if (!touchHits(event)) return;
+    // A finger landing is not a gesture the browser starts audio on, lifting
+    // it is: the page's first touch is heard on the way up instead of never.
+    if (audioLocked()) whenLifted(event.pointerId, onHit);
+    else onHit();
+  };
+
   const key = shortcut.toUpperCase();
 
   return (
     <div
       ref={root}
-      className="relative flex flex-col gap-1 min-w-0 border border-foreground rounded-xs p-3"
+      onPointerDown={press}
+      // No double-tap zoom, text selection or callout to get in the way of
+      // fast taps; a swipe starting on a pad still scrolls the page.
+      className="relative flex flex-col gap-1 min-w-0 border border-foreground rounded-xs p-3 touch-manipulation select-none [-webkit-touch-callout:none] [-webkit-tap-highlight-color:transparent]"
     >
       <PadSettings
         input={input}

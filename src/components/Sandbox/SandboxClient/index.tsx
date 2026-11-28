@@ -75,6 +75,7 @@ export const SandboxClient: FC = () => {
               midiPad={MPD_PADS[index].number}
               pulse={pulses[index]}
               sample={SAMPLES[index]}
+              onHit={() => hit(index)}
             />
           ))}
         </div>
